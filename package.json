@@ -1,0 +1,32 @@
+{
+  "name": "@shieldsbetter/relaxation",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "ava"
+  },
+  "author": "Hampton Smith",
+  "license": "ISC",
+  "dependencies": {
+    "@koa/router": "^10.1.1",
+    "@shieldsbetter/parse-if-match": "0.0.1",
+    "@shieldsbetter/sb-optimistic-entities": "^0.0.3",
+    "@shieldsbetter/sberror2": "^0.0.3",
+    "fast-json-patch": "^3.1.1",
+    "koa": "^2.13.4",
+    "koa-bodyparser": "^4.3.0",
+    "type-is": "^1.6.18"
+  },
+  "devDependencies": {
+    "ava": "^4.2.0",
+    "axios": "^0.26.1",
+    "mongodb": "^4.5.0",
+    "sift": "^16.0.0"
+  },
+  "ava": {
+    "files": [
+      "./testing/tests/*"
+    ]
+  }
+}
