@@ -74,7 +74,7 @@ test('get - if-match star 200', async t => {
     });
 });
 
-test('get - if-match weak -> 312', async t => {
+test('get - if-match weak -> 412', async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
@@ -88,7 +88,7 @@ test('get - if-match weak -> 312', async t => {
         }
     }));
 
-    t.is(error.response.status, 312);
+    t.is(error.response.status, 412);
 });
 
 test('get - if-match multiple 200', async t => {
@@ -114,7 +114,7 @@ test('get - if-match multiple 200', async t => {
     });
 });
 
-test('get - if-match 312', async t => {
+test('get - if-match 412', async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
@@ -128,7 +128,7 @@ test('get - if-match 312', async t => {
         }
     }));
 
-    t.is(error.response.status, 312);
+    t.is(error.response.status, 412);
 });
 
 test('get - if-none-match 200', async t => {
@@ -256,6 +256,248 @@ test('basic post, patch, and get', async t => {
         foo: { waldo: 'plugh' },
         bazz: 'bazzval'
     });
+});
+
+test('patch - if-match 200', async t => {
+    const r = await testRelax(t, () => {});
+
+    const { data: postData, headers: postHeaders } = await r.post('/', {
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    const { data: patchData, status: patchStatus } =
+            await r.patch(`/${postData.id}`, [
+                { op: 'replace', path: '/foo', value: 'fooval2' }
+            ],
+            {
+                headers: {
+                    'Content-Type': 'application/json-patch+json',
+                    'If-Match': postHeaders.etag
+                }
+            });
+
+    t.is(patchStatus, 200);
+    t.deepEqual(patchData, {
+        id: postData.id,
+        foo: 'fooval2',
+        bar: 'barval'
+    });
+});
+
+test('patch - if-match star 200', async t => {
+    const r = await testRelax(t, () => {});
+
+    const { data: postData } = await r.post('/', {
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    const { data: patchData, status: patchStatus } =
+            await r.patch(`/${postData.id}`, [
+                { op: 'replace', path: '/foo', value: 'fooval2' }
+            ],
+            {
+                headers: {
+                    'Content-Type': 'application/json-patch+json',
+                    'If-Match': '*'
+                }
+            });
+
+    t.is(patchStatus, 200);
+    t.deepEqual(patchData, {
+        id: postData.id,
+        foo: 'fooval2',
+        bar: 'barval'
+    });
+});
+
+test('patch - if-match weak -> 412', async t => {
+    const r = await testRelax(t, () => {});
+
+    const { data: postData, headers: postHeaders } = await r.post('/', {
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    const error = await t.throwsAsync(r.patch(`/${postData.id}`,
+        [
+            { op: 'replace', path: '/foo', value: 'fooval2' }
+        ],
+        {
+            headers: {
+                'Content-Type': 'application/json-patch+json',
+                'If-Match': `W/${postHeaders.etag}`
+            }
+        }
+    ));
+
+    t.is(error.response.status, 412);
+});
+
+test('patch - if-match multiple 200', async t => {
+    const r = await testRelax(t, () => {});
+
+    const { data: postData, headers: postHeaders } = await r.post('/', {
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    const { data: patchData, status: patchStatus } =
+            await r.patch(`/${postData.id}`, [
+                { op: 'replace', path: '/foo', value: 'fooval2' }
+            ],
+            {
+                headers: {
+                    'Content-Type': 'application/json-patch+json',
+                    'If-Match': `"thing", ${postHeaders.etag}, "otherthing"`
+                }
+            });
+
+    t.is(patchStatus, 200);
+    t.deepEqual(patchData, {
+        id: postData.id,
+        foo: 'fooval2',
+        bar: 'barval'
+    });
+});
+
+test('patch - if-match 412', async t => {
+    const r = await testRelax(t, () => {});
+
+    const { data: postData, headers: postHeaders } = await r.post('/', {
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    const error = await t.throwsAsync(r.patch(`/${postData.id}`,
+        [
+            { op: 'replace', path: '/foo', value: 'fooval2' }
+        ],
+        {
+            headers: {
+                'Content-Type': 'application/json-patch+json',
+                'If-Match': '"somethingelse"'
+            }
+        }));
+
+    t.is(error.response.status, 412);
+});
+
+test('patch - if-none-match 200', async t => {
+    const r = await testRelax(t, () => {});
+
+    const { data: postData, headers: postHeaders } = await r.post('/', {
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    const { data: patchData, status: patchStatus } =
+            await r.patch(`/${postData.id}`,
+                [
+                    { op: 'replace', path: '/foo', value: 'fooval2' }
+                ],
+                {
+                    headers: {
+                        'Content-Type': 'application/json-patch+json',
+                        'If-None-Match': '"somethingelse"'
+                    }
+                });
+
+    t.is(patchStatus, 200);
+    t.deepEqual(patchData, {
+        id: postData.id,
+        foo: 'fooval2',
+        bar: 'barval'
+    });
+});
+
+test('patch - if-none-match 412', async t => {
+    const r = await testRelax(t, () => {});
+
+    const { data: postData, headers: postHeaders } = await r.post('/', {
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    const error = await t.throwsAsync(r.patch(`/${postData.id}`,
+            [
+                { op: 'replace', path: '/foo', value: 'fooval2' }
+            ],
+            {
+                headers: {
+                    'Content-Type': 'application/json-patch+json',
+                    'If-None-Match': postHeaders.etag
+                }
+            }));
+
+    t.is(error.response.status, 412);
+});
+
+test('patch - if-none-match multiple', async t => {
+    const r = await testRelax(t, () => {});
+
+    const { data: postData, headers: postHeaders } = await r.post('/', {
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    const error = await t.throwsAsync(r.patch(`/${postData.id}`,
+            [
+                { op: 'replace', path: '/foo', value: 'fooval2' }
+            ],
+            {
+                headers: {
+                    'Content-Type': 'application/json-patch+json',
+                    'If-None-Match':
+                            `"something", ${postHeaders.etag}, "somethingelse"`
+                }
+            }));
+
+    t.is(error.response.status, 412);
+});
+
+test('patch - if-none-match weak 412', async t => {
+    const r = await testRelax(t, () => {});
+
+    const { data: postData, headers: postHeaders } = await r.post('/', {
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    const error = await t.throwsAsync(r.patch(`/${postData.id}`,
+            [
+                { op: 'replace', path: '/foo', value: 'fooval2' }
+            ],
+            {
+                headers: {
+                    'Content-Type': 'application/json-patch+json',
+                    'If-None-Match': `W/${postHeaders.etag}`
+                }
+            }));
+
+    t.is(error.response.status, 412);
+});
+
+test('get - if-none-match star 412', async t => {
+    const r = await testRelax(t, () => {});
+
+    const { data: postData, headers: postHeaders } = await r.post('/', {
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    const error = await t.throwsAsync(r.patch(`/${postData.id}`, [
+                { op: 'replace', path: '/foo', value: 'fooval2' }
+            ],
+            {
+                headers: {
+                    'Content-Type': 'application/json-patch+json',
+                    'If-None-Match': '*'
+                }
+            }));
+
+    t.is(error.response.status, 412);
 });
 
 test('basic put and get', async t => {

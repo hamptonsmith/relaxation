@@ -8,6 +8,12 @@ const Relax = require('../index');
 module.exports = async (
     t, validate, { constructorOpts = {}, listenOpts = {} } = {}
 ) => {
+    constructorOpts = {
+        onUnexpectedError: e => { t.fail(e.stack); },
+
+        ...constructorOpts
+    };
+
     const collection =
             fakeMongoDbClient(t.log.bind(t)).collection('TestCollection');
     const relax = new Relax(collection, validate, constructorOpts);
