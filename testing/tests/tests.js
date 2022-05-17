@@ -479,7 +479,7 @@ test('patch - if-none-match weak 412', async t => {
     t.is(error.response.status, 412);
 });
 
-test('get - if-none-match star 412', async t => {
+test('patch - if-none-match star 412', async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
@@ -522,5 +522,315 @@ test('basic put and get', async t => {
         id: 'abc',
         foo: 'fooval',
         bar: 'barval'
+    });
+});
+
+test('put - if-match 200', async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            generateId: () => 'abc'
+        }
+    });
+
+    const { data: postData, headers: postHeaders } = await r.post('/', {
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    const { data: patchData, status: patchStatus } =
+            await r.put(`/${postData.id}`, {
+                foo: 'fooval2',
+                bar: 'barval2'
+            },
+            {
+                headers: {
+                    'If-Match': postHeaders.etag
+                }
+            });
+
+    t.is(patchStatus, 200);
+    t.deepEqual(patchData, {
+        id: postData.id,
+        foo: 'fooval2',
+        bar: 'barval2'
+    });
+});
+
+test('put - if-match star 200', async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            generateId: () => 'abc'
+        }
+    });
+
+    const { data: postData } = await r.post('/', {
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    const { data: patchData, status: patchStatus } =
+            await r.put(`/${postData.id}`, {
+                foo: 'fooval2',
+                bar: 'barval2'
+            },
+            {
+                headers: {
+                    'If-Match': '*'
+                }
+            });
+
+    t.is(patchStatus, 200);
+    t.deepEqual(patchData, {
+        id: postData.id,
+        foo: 'fooval2',
+        bar: 'barval2'
+    });
+});
+
+test('put - if-match weak -> 412', async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            generateId: () => 'abc'
+        }
+    });
+
+    const { data: postData, headers: postHeaders } = await r.post('/', {
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    const error = await t.throwsAsync(r.put(`/${postData.id}`,
+        {
+            foo: 'fooval2',
+            bar: 'barval2'
+        },
+        {
+            headers: {
+                'If-Match': `W/${postHeaders.etag}`
+            }
+        }
+    ));
+
+    t.is(error.response.status, 412);
+});
+
+test('put - if-match multiple 200', async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            generateId: () => 'abc'
+        }
+    });
+
+    const { data: postData, headers: postHeaders } = await r.post('/', {
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    const { data: patchData, status: patchStatus } =
+            await r.put(`/${postData.id}`, {
+                foo: 'fooval2',
+                bar: 'barval2'
+            },
+            {
+                headers: {
+                    'If-Match': `"thing", ${postHeaders.etag}, "otherthing"`
+                }
+            });
+
+    t.is(patchStatus, 200);
+    t.deepEqual(patchData, {
+        id: postData.id,
+        foo: 'fooval2',
+        bar: 'barval2'
+    });
+});
+
+test('put - if-match 412', async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            generateId: () => 'abc'
+        }
+    });
+
+    const { data: postData, headers: postHeaders } = await r.post('/', {
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    const error = await t.throwsAsync(r.put(`/${postData.id}`,
+        {
+            foo: 'fooval2',
+            bar: 'barval2'
+        },
+        {
+            headers: {
+                'If-Match': '"somethingelse"'
+            }
+        }));
+
+    t.is(error.response.status, 412);
+});
+
+test('put - if-none-match 200', async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            generateId: () => 'abc'
+        }
+    });
+
+    const { data: postData, headers: postHeaders } = await r.post('/', {
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    const { data: patchData, status: patchStatus } =
+            await r.put(`/${postData.id}`,
+                {
+                    foo: 'fooval2',
+                    bar: 'barval2'
+                },
+                {
+                    headers: {
+                        'If-None-Match': '"somethingelse"'
+                    }
+                });
+
+    t.is(patchStatus, 200);
+    t.deepEqual(patchData, {
+        id: postData.id,
+        foo: 'fooval2',
+        bar: 'barval2'
+    });
+});
+
+test('put - if-none-match 412', async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            generateId: () => 'abc'
+        }
+    });
+
+    const { data: postData, headers: postHeaders } = await r.post('/', {
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    const error = await t.throwsAsync(r.put(`/${postData.id}`,
+            {
+                foo: 'fooval',
+                bar: 'barval'
+            },
+            {
+                headers: {
+                    'If-None-Match': postHeaders.etag
+                }
+            }));
+
+    t.is(error.response.status, 412);
+});
+
+test('put - if-none-match multiple', async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            generateId: () => 'abc'
+        }
+    });
+
+    const { data: postData, headers: postHeaders } = await r.post('/', {
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    const error = await t.throwsAsync(r.put(`/${postData.id}`,
+            {
+                foo: 'fooval2',
+                bar: 'barval2'
+            },
+            {
+                headers: {
+                    'If-None-Match':
+                            `"something", ${postHeaders.etag}, "somethingelse"`
+                }
+            }));
+
+    t.is(error.response.status, 412);
+});
+
+test('put - if-none-match weak 412', async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            generateId: () => 'abc'
+        }
+    });
+
+    const { data: postData, headers: postHeaders } = await r.post('/', {
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    const error = await t.throwsAsync(r.put(`/${postData.id}`,
+            {
+                foo: 'fooval2',
+                bar: 'barval2'
+            },
+            {
+                headers: {
+                    'If-None-Match': `W/${postHeaders.etag}`
+                }
+            }));
+
+    t.is(error.response.status, 412);
+});
+
+test('put - if-none-match star 412', async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            generateId: () => 'abc'
+        }
+    });
+
+    const { data: postData, headers: postHeaders } = await r.post('/', {
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    const error = await t.throwsAsync(r.put(`/${postData.id}`,
+            {
+                foo: 'fooval2',
+                bar: 'barval2'
+            },
+            {
+                headers: {
+                    'If-None-Match': '*'
+                }
+            }));
+
+    t.is(error.response.status, 412);
+});
+
+test('put - if-none-match star + nothing -> 200', async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            generateId: () => 'abc'
+        }
+    });
+
+    const { data: patchData, status: patchStatus } =
+            await r.put(`/abc`,
+                {
+                    foo: 'fooval2',
+                    bar: 'barval2'
+                },
+                {
+                    headers: {
+                        'If-None-Match': '*'
+                    }
+                });
+
+    t.is(patchStatus, 200);
+    t.deepEqual(patchData, {
+        id: 'abc',
+        foo: 'fooval2',
+        bar: 'barval2'
     });
 });

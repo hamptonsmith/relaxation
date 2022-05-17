@@ -94,48 +94,8 @@ function buildRouter() {
 
     require('./operations/get-entity')(router, this);
     require('./operations/patch-entity')(router, this);
-
-    router.post('/', bodyparser(), async (ctx, next) => {
-        if ('id' in ctx.request.body) {
-            throw new errors.InvalidRequest({
-                reason: `may not POST entity with an id: ${ctx.request.body.id}`
-            });
-        }
-
-        this.validate(ctx.request.body);
-
-        const { value, version }  = await this.collection.insertOneRecord(
-                toMongoDoc(ctx.request.body));
-
-        ctx.set('ETag', `"${version}"`);
-        ctx.status = 200;
-        ctx.body = fromMongoDoc(value);
-    });
-
-    router.put('/:id', bodyparser(), async (ctx, next) => {
-        const parsedId = this.parseUrlId(ctx.params.id);
-
-        if ('id' in ctx.request.body
-                && !deepequal(ctx.request.body.id, parsedId)) {
-            throw new errors.InvalidRequest({
-                reason: `id in body of PUT must be omitted or match id in `
-                        + ` path. Path id: ${JSON.stringify(parsedId)}, body `
-                        + ` id: ${ctx.request.body.id}`
-            });
-        }
-
-        ctx.request.body.id = parsedId;
-
-        this.validate(ctx.request.body);
-
-        const { value } = await this.collection.updateOneRecord(
-                { _id: parsedId },
-                () => toMongoDoc(ctx.request.body),
-                { upsert: true });
-
-        ctx.status = 200;
-        ctx.body = fromMongoDoc(value);
-    });
+    require('./operations/post-entity')(router, this);
+    require('./operations/put-entity')(router, this);
 
     return router;
 }
