@@ -28,6 +28,14 @@ test('basic post and get', async t => {
     });
 });
 
+test('get - not found', async t => {
+    const r = await testRelax(t, () => {});
+
+    const e = await t.throwsAsync(r.get(`/nonesuch`));
+
+    t.is(e.response.status, 404);
+});
+
 test('get - if-match 200', async t => {
     const r = await testRelax(t, () => {});
 
@@ -833,4 +841,193 @@ test('put - if-none-match star + nothing -> 200', async t => {
         foo: 'fooval2',
         bar: 'barval2'
     });
+});
+
+test('basic post and delete', async t => {
+    const r = await testRelax(t, () => {});
+
+    const { data: postData } = await r.post('/', {
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    await r.delete(`/${postData.id}`);
+
+    const e = await t.throwsAsync(r.get(`/${postData.id}`));
+
+    t.is(e.response.status, 404);
+});
+
+test('delete - if-match 204', async t => {
+    const r = await testRelax(t, () => {});
+
+    const { data: postData, headers: postHeaders } = await r.post('/', {
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    const { data: deleteData, status: deleteStatus } =
+            await r.delete(`/${postData.id}`, {
+        headers: {
+            'If-Match': postHeaders.etag
+        }
+    });
+
+    t.is(deleteStatus, 204);
+});
+
+test('delete - if-match star 204', async t => {
+    const r = await testRelax(t, () => {});
+
+    const { data: postData } = await r.post('/', {
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    const { data: deleteData, status: deleteStatus } =
+            await r.delete(`/${postData.id}`, {
+        headers: {
+            'If-Match': '*'
+        }
+    });
+
+    t.is(deleteStatus, 204);
+});
+
+test('delete - if-match weak -> 412', async t => {
+    const r = await testRelax(t, () => {});
+
+    const { data: postData, headers: postHeaders } = await r.post('/', {
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    const error = await t.throwsAsync(r.delete(`/${postData.id}`, {
+        headers: {
+            'If-Match': `W/${postHeaders.etag}`
+        }
+    }));
+
+    t.is(error.response.status, 412);
+});
+
+test('delete - if-match multiple 204', async t => {
+    const r = await testRelax(t, () => {});
+
+    const { data: postData, headers: postHeaders } = await r.post('/', {
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    const { data: deleteData, status: deleteStatus } =
+            await r.delete(`/${postData.id}`, {
+        headers: {
+            'If-Match': `"something", ${postHeaders.etag}, "somethingelse"`
+        }
+    });
+
+    t.is(deleteStatus, 204);
+});
+
+test('delete - if-match 412', async t => {
+    const r = await testRelax(t, () => {});
+
+    const { data: postData, headers: postHeaders } = await r.post('/', {
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    const error = await t.throwsAsync(r.delete(`/${postData.id}`, {
+        headers: {
+            'If-Match': '"somethingelse"'
+        }
+    }));
+
+    t.is(error.response.status, 412);
+});
+
+test('delete - if-none-match 204', async t => {
+    const r = await testRelax(t, () => {});
+
+    const { data: postData, headers: postHeaders } = await r.post('/', {
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    const { data: deleteData, status: deleteStatus } =
+            await r.delete(`/${postData.id}`, {
+        headers: {
+            'If-None-Match': '"somethingelse"'
+        }
+    });
+
+    t.is(deleteStatus, 204);
+});
+
+test('delete - if-none-match 412', async t => {
+    const r = await testRelax(t, () => {});
+
+    const { data: postData, headers: postHeaders } = await r.post('/', {
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    const error = await t.throwsAsync(r.delete(`/${postData.id}`, {
+        headers: {
+            'If-None-Match': postHeaders.etag
+        }
+    }));
+
+    t.is(error.response.status, 412);
+});
+
+test('delete - if-none-match multiple', async t => {
+    const r = await testRelax(t, () => {});
+
+    const { data: postData, headers: postHeaders } = await r.post('/', {
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    const error = await t.throwsAsync(r.delete(`/${postData.id}`, {
+        headers: {
+            'If-None-Match': `"something", ${postHeaders.etag}, "somethingelse"`
+        }
+    }));
+
+    t.is(error.response.status, 412);
+});
+
+test('delete - if-none-match weak 412', async t => {
+    const r = await testRelax(t, () => {});
+
+    const { data: postData, headers: postHeaders } = await r.post('/', {
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    const error = await t.throwsAsync(r.delete(`/${postData.id}`, {
+        headers: {
+            'If-None-Match': `W/${postHeaders.etag}`
+        }
+    }));
+
+    t.is(error.response.status, 412);
+});
+
+test('delete - if-none-match star 412', async t => {
+    const r = await testRelax(t, () => {});
+
+    const { data: postData, headers: postHeaders } = await r.post('/', {
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    const error = await t.throwsAsync(r.delete(`/${postData.id}`, {
+        headers: {
+            'If-None-Match': '*'
+        }
+    }));
+
+    t.is(error.response.status, 412);
 });

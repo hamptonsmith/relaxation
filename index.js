@@ -47,6 +47,10 @@ module.exports = class Relaxation {
                     ctx.status = 412;
                     ctx.body = 'Precondition failed.';
                 }
+                else if (e instanceof errors.NoSuchEntity) {
+                    ctx.status = 404;
+                    ctx.body = 'Not found.';
+                }
                 else if (e instanceof errors.NotModified) {
                     ctx.status = 304;
                     ctx.body = 'Not modified.';
@@ -92,6 +96,7 @@ module.exports = class Relaxation {
 function buildRouter() {
     const router = new Router();
 
+    require('./operations/delete-entity')(router, this);
     require('./operations/get-entity')(router, this);
     require('./operations/patch-entity')(router, this);
     require('./operations/post-entity')(router, this);
