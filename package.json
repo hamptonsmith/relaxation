@@ -4,18 +4,22 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "ava"
+    "test": "pelton-start-target --config test && docker run --rm -e MONGO_URL=mongodb://localhost:30000 relaxation:latest"
   },
   "author": "Hampton Smith",
   "license": "ISC",
   "dependencies": {
     "@koa/router": "^10.1.1",
     "@shieldsbetter/parse-if-match": "0.0.1",
-    "@shieldsbetter/sb-optimistic-entities": "0.0.4",
+    "@shieldsbetter/sb-optimistic-entities": "^0.0.7",
     "@shieldsbetter/sberror2": "^0.0.3",
+    "bson-objectid": "^2.0.3",
+    "deep-equal": "^2.0.5",
     "fast-json-patch": "^3.1.1",
+    "install": "^0.13.0",
     "koa": "^2.13.4",
     "koa-bodyparser": "^4.3.0",
+    "npm": "^8.19.2",
     "type-is": "^1.6.18"
   },
   "devDependencies": {
@@ -27,6 +31,16 @@
   "ava": {
     "files": [
       "./testing/tests/*"
+    ]
+  },
+  "pelton": {
+    "printEnvironment": "bash dev/generate-environment $1",
+    "printScriptRunnerDockerfile": "cat dev/script-runner-dockerfile",
+    "printServiceDockerfileDev": "cat dev/Dockerfile",
+    "projectName": "sb-relaxation",
+    "projectPrefix": "sbrlx",
+    "dependencies": [
+      "pelton-dummy"
     ]
   }
 }

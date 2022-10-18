@@ -21,8 +21,6 @@ module.exports = (router, relax) => router.put('/:id', bodyParser(),
         });
     }
 
-    ctx.request.body.id = parsedId;
-
     relax.validate(ctx.request.body);
 
     const { value } = await relax.collection.updateOneRecord(
@@ -39,6 +37,8 @@ module.exports = (router, relax) => router.put('/:id', bodyParser(),
                     throw errors.preconditionFailed(
                             `If-None-Match ${ctx.get('If-None-Match')}`);
                 }
+
+                ctx.request.body.id = doc._id;
 
                 return toMongoDoc(ctx.request.body);
             },

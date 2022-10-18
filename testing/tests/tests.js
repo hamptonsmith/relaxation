@@ -2,8 +2,38 @@
 
 const test = require('ava');
 const testRelax = require('../test-relax');
+const util = require('util');
 
-test('basic post and get', async t => {
+function cleanAxiosErrors(fn) {
+    return async t => {
+        let result;
+        try {
+            result = await fn(t);
+        }
+        catch (e) {
+            if (e.isAxiosError) {
+                const cleanError = new Error(e.message);
+                cleanError.request = {
+                    headers: e.config.headers,
+                    method: e.request.method,
+                    path: e.request.path
+                };
+                cleanError.response = {
+                    data: e.response.data,
+                    headers: e.response.headers,
+                    status: e.response.status,
+                };
+                throw cleanError;
+            }
+
+            throw e;
+        }
+
+        return result;
+    };
+}
+
+test('basic post and get', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData, status: postStatus } = await r.post('/', {
@@ -26,10 +56,15 @@ test('basic post and get', async t => {
         foo: 'fooval',
         bar: 'barval'
     });
-});
+}));
 
 test('get - not found', async t => {
-    const r = await testRelax(t, () => {});
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            generateId: () => 'abc',
+            parseUrlId: x => x
+        }
+    });
 
     const e = await t.throwsAsync(r.get(`/nonesuch`));
 
@@ -509,7 +544,12 @@ test('patch - if-none-match star 412', async t => {
 });
 
 test('basic put and get', async t => {
-    const r = await testRelax(t, () => {});
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            generateId: () => 'abc',
+            parseUrlId: x => x
+        }
+    });
 
     const { data: putData, status: putStatus } = await r.put('/abc', {
         foo: 'fooval',
@@ -534,11 +574,7 @@ test('basic put and get', async t => {
 });
 
 test('put - if-match 200', async t => {
-    const r = await testRelax(t, () => {}, {
-        constructorOpts: {
-            generateId: () => 'abc'
-        }
-    });
+    const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
         foo: 'fooval',
@@ -565,11 +601,7 @@ test('put - if-match 200', async t => {
 });
 
 test('put - if-match star 200', async t => {
-    const r = await testRelax(t, () => {}, {
-        constructorOpts: {
-            generateId: () => 'abc'
-        }
-    });
+    const r = await testRelax(t, () => {});
 
     const { data: postData } = await r.post('/', {
         foo: 'fooval',
@@ -596,11 +628,7 @@ test('put - if-match star 200', async t => {
 });
 
 test('put - if-match weak -> 412', async t => {
-    const r = await testRelax(t, () => {}, {
-        constructorOpts: {
-            generateId: () => 'abc'
-        }
-    });
+    const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
         foo: 'fooval',
@@ -623,11 +651,7 @@ test('put - if-match weak -> 412', async t => {
 });
 
 test('put - if-match multiple 200', async t => {
-    const r = await testRelax(t, () => {}, {
-        constructorOpts: {
-            generateId: () => 'abc'
-        }
-    });
+    const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
         foo: 'fooval',
@@ -654,11 +678,7 @@ test('put - if-match multiple 200', async t => {
 });
 
 test('put - if-match 412', async t => {
-    const r = await testRelax(t, () => {}, {
-        constructorOpts: {
-            generateId: () => 'abc'
-        }
-    });
+    const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
         foo: 'fooval',
@@ -680,11 +700,7 @@ test('put - if-match 412', async t => {
 });
 
 test('put - if-none-match 200', async t => {
-    const r = await testRelax(t, () => {}, {
-        constructorOpts: {
-            generateId: () => 'abc'
-        }
-    });
+    const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
         foo: 'fooval',
@@ -712,11 +728,7 @@ test('put - if-none-match 200', async t => {
 });
 
 test('put - if-none-match 412', async t => {
-    const r = await testRelax(t, () => {}, {
-        constructorOpts: {
-            generateId: () => 'abc'
-        }
-    });
+    const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
         foo: 'fooval',
@@ -738,11 +750,7 @@ test('put - if-none-match 412', async t => {
 });
 
 test('put - if-none-match multiple', async t => {
-    const r = await testRelax(t, () => {}, {
-        constructorOpts: {
-            generateId: () => 'abc'
-        }
-    });
+    const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
         foo: 'fooval',
@@ -765,11 +773,7 @@ test('put - if-none-match multiple', async t => {
 });
 
 test('put - if-none-match weak 412', async t => {
-    const r = await testRelax(t, () => {}, {
-        constructorOpts: {
-            generateId: () => 'abc'
-        }
-    });
+    const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
         foo: 'fooval',
@@ -791,11 +795,7 @@ test('put - if-none-match weak 412', async t => {
 });
 
 test('put - if-none-match star 412', async t => {
-    const r = await testRelax(t, () => {}, {
-        constructorOpts: {
-            generateId: () => 'abc'
-        }
-    });
+    const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
         foo: 'fooval',
@@ -819,7 +819,8 @@ test('put - if-none-match star 412', async t => {
 test('put - if-none-match star + nothing -> 200', async t => {
     const r = await testRelax(t, () => {}, {
         constructorOpts: {
-            generateId: () => 'abc'
+            generateId: () => 'abc',
+            parseUrlId: x => x
         }
     });
 

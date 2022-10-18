@@ -1,0 +1,23 @@
+{
+    "projectName": "relaxation",
+    "projectDnsName": "rlx",
+
+    "printScriptRunnerDockerfile": "cat pelton/script-runner.Dockerfile",
+
+    "configurations": {
+        "default": {
+
+        },
+        "test": {
+            "buildImage": "DOCKER_BUILDKIT=1 docker build --file pelton/test-runner.Dockerfile --tag $PELTON_IMAGE_TAG .",
+            "printService": "bash pelton/print-test-job",
+            "jobPodSelector": "test-job=relaxation",
+            "dynamicDependencies": {
+                "sb-optimistic-entities": {
+                    "navigate": "cd $(npm explore @shieldsbetter/sb-optimistic-entities -- pwd)",
+                    "configuration": "test"
+                }
+            }
+        }
+    }
+}

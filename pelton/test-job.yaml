@@ -1,0 +1,19 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: relax-run-tests-job-${MONGO_IMAGE_TAG_DNS}
+spec:
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        test-job: relaxation
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: run-tests-ctnr-${MONGO_IMAGE_TAG_DNS}
+        image: $PELTON_IMAGE_TAG:latest
+        args: $PELTON_START_ARGS
+        env:
+        - name: MONGO_CONNECT_STRING
+          value: "mongodb://mongo-svc-${MONGO_IMAGE_TAG_DNS}.pltn-rlx-test-$PELTON_ISO_KEY:27017"
