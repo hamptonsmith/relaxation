@@ -1,36 +1,13 @@
 'use strict';
 
+const LinkHeader = require('http-link-header');
+const Mustache = require('mustache');
 const test = require('ava');
 const testRelax = require('../test-relax');
 const util = require('util');
 
-function cleanAxiosErrors(fn) {
-    return async t => {
-        let result;
-        try {
-            result = await fn(t);
-        }
-        catch (e) {
-            if (e.isAxiosError) {
-                const cleanError = new Error(e.message);
-                cleanError.request = {
-                    headers: e.config.headers,
-                    method: e.request.method,
-                    path: e.request.path
-                };
-                cleanError.response = {
-                    data: e.response.data,
-                    headers: e.response.headers,
-                    status: e.response.status,
-                };
-                throw cleanError;
-            }
-
-            throw e;
-        }
-
-        return result;
-    };
+async function sleep(ms = 2000) {
+    await new Promise(r => setTimeout(r, ms));
 }
 
 test('basic post and get', cleanAxiosErrors(async t => {
@@ -56,6 +33,83 @@ test('basic post and get', cleanAxiosErrors(async t => {
         foo: 'fooval',
         bar: 'barval'
     });
+}));
+
+test('basic list', cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {});
+
+    await postMany(r, 2, { name: 'doc {{i}}'});
+
+    const { data: listData, headers, status: listStatus } = await r.get('/');
+
+    t.is(headers.Link, undefined);
+    t.is(listStatus, 200);
+
+    const listNames = listData.map(({ name }) => name);
+    listNames.sort();
+
+    t.deepEqual(listNames, [
+        'doc 0', 'doc 1'
+    ]);
+}));
+
+test('empty list', cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {});
+
+    const { data: listData, headers, status: listStatus } = await r.get('/');
+
+    t.is(headers.Link, undefined);
+    t.is(listStatus, 200);
+    t.deepEqual(listData, []);
+}));
+
+test('list with default first', cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {});
+
+    await postMany(r, 60, { name: 'doc {{i}}'});
+
+    const { data: listData, headers, status: listStatus } = await r.get('/');
+
+    t.is(headers.Link, undefined);
+    t.is(listStatus, 200);
+    t.deepEqual(listData.length, 50);
+}));
+
+test('list with specified first', cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {});
+
+    await postMany(r, 30, { name: 'doc {{i}}'});
+
+    const { data: listData, headers, status: listStatus } =
+            await r.get('/?first=20');
+
+    t.is(headers.Link, undefined);
+    t.is(listStatus, 200);
+    t.deepEqual(listData.length, 20);
+}));
+
+test('list multiple pages with default first', cleanAxiosErrors(async t => {
+    t.timeout(40000);
+    const r = await testRelax(t, () => {});
+
+    await postMany(r, 160, { name: 'doc {{i}}'});
+
+    // Give the index a sec to catch up.
+    await sleep();
+
+    let next = '/';
+    let results = [];
+    while (next) {
+        const { data: listData, headers, status: listStatus } =
+                await r.get(next);
+
+        t.is(listStatus, 200);
+
+        results = results.concat(listData);
+        next = toRelative(new LinkHeader(headers.link).rel('next')[0]?.uri);
+    }
+
+    t.deepEqual(results.length, 160);
 }));
 
 test('get - not found', async t => {
@@ -1032,3 +1086,58 @@ test('delete - if-none-match star 412', async t => {
 
     t.is(error.response.status, 412);
 });
+
+function cleanAxiosErrors(fn) {
+    return async t => {
+        let result;
+        try {
+            result = await fn(t);
+        }
+        catch (e) {
+            if (e.isAxiosError) {
+                const cleanError = new Error(e.message);
+                cleanError.request = {
+                    headers: e.config.headers,
+                    method: e.request.method,
+                    path: e.request.path
+                };
+                cleanError.response = {
+                    data: e.response.data,
+                    headers: e.response.headers,
+                    status: e.response.status,
+                };
+                throw cleanError;
+            }
+
+            throw e;
+        }
+
+        return result;
+    };
+}
+
+async function postMany(relax, count, template) {
+    const promises = [];
+    for (let i = 0; i < count; i++) {
+        promises.push(relax.post('/', templateObj(template, { i })));
+    }
+
+    await Promise.all(promises);
+}
+
+function templateObj(o, data) {
+    return Object.fromEntries(Object.entries(o).map(
+        ([key, value]) => typeof value === 'string'
+                ? ([key, Mustache.render(value, data)])
+                : value
+    ));
+}
+
+function toRelative(href) {
+    if (!href) {
+        return;
+    }
+
+    const url = new URL(href);
+    return url.pathname + url.search;
+}

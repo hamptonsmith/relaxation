@@ -23,27 +23,28 @@ module.exports = (router, relax) => router.put('/:id', bodyParser(),
 
     relax.validate(ctx.request.body);
 
-    const { value } = await relax.collection.updateOneRecord(
+    const { document } = await relax.collection.updateOneRecord(
             { _id: parsedId },
-            (doc, { version }) => {
+            document => {
                 if (ctx.request.ifMatch &&
-                        !ctx.request.ifMatch.some(strongCompare(version))) {
+                        !ctx.request.ifMatch.some(
+                                strongCompare(document.version_sboe))) {
                     throw errors.preconditionFailed(
                             `If-Match ${ctx.get('If-Match')}`);
                 }
 
-                if (ctx.request.ifNoneMatch && version !== undefined &&
-                        ctx.request.ifNoneMatch.some(weakCompare(version))) {
+                if (ctx.request.ifNoneMatch
+                            && document.version_sboe !== undefined &&
+                        ctx.request.ifNoneMatch.some(
+                                weakCompare(document.version_sboe))) {
                     throw errors.preconditionFailed(
                             `If-None-Match ${ctx.get('If-None-Match')}`);
                 }
-
-                ctx.request.body.id = doc._id;
 
                 return toMongoDoc(ctx.request.body);
             },
             { upsert: true });
 
     ctx.status = 200;
-    ctx.body = fromMongoDoc(value);
+    ctx.body = fromMongoDoc(document);
 });

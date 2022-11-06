@@ -11,12 +11,14 @@
   "dependencies": {
     "@koa/router": "^10.1.1",
     "@shieldsbetter/parse-if-match": "0.0.1",
-    "@shieldsbetter/sb-optimistic-entities": "^0.0.7",
+    "@shieldsbetter/sb-optimistic-entities": "^0.0.10",
     "@shieldsbetter/sberror2": "^0.0.3",
     "bson-objectid": "^2.0.3",
     "deep-equal": "^2.0.5",
     "fast-json-patch": "^3.1.1",
+    "http-link-header": "^1.0.5",
     "install": "^0.13.0",
+    "json-pointer": "^0.6.2",
     "koa": "^2.13.4",
     "koa-bodyparser": "^4.3.0",
     "npm": "^8.19.2",
@@ -26,6 +28,7 @@
     "ava": "^4.2.0",
     "axios": "^0.26.1",
     "mongodb": "^4.5.0",
+    "mustache": "^4.2.0",
     "sift": "^16.0.0"
   },
   "ava": {

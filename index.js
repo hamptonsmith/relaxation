@@ -8,30 +8,25 @@ const jsonPatch = require('fast-json-patch');
 const Koa = require('koa');
 const objectId = require("bson-objectid");
 const OptEntCollection = require('@shieldsbetter/sb-optimistic-entities')
+const orderingToIndexKeys = require('./utils/ordering-to-index-keys');
 const parseIfMatch = require('@shieldsbetter/parse-if-match');
 const Router = require('@koa/router');
 const SbError = require('@shieldsbetter/sberror2');
 const typeIs = require('type-is');
-
-const { fromMongoDoc, toMongoDoc } = require('./utils/mongo-doc-utils');
-
-const indexMetafields = {
-    createdAt: 'createdAt',
-    eTag: 'version',
-    updatedAt: 'updatedAt'
-};
 
 class Relaxation {
     constructor(collection, validate, {
         generateId,
         log = console.log,
         onUnexpectedError = (() => {}),
+        orderings,
         parseUrlId
     } = {}) {
         this.collection = new OptEntCollection(collection);
         this.generateId = generateId || (() => undefined);
         this.log = log;
         this.onUnexpectedError = onUnexpectedError;
+        this.orderings = orderings;
         this.parseUrlId = parseUrlId || (x => objectId(x));
         this.validate = validate;
     }
@@ -104,6 +99,17 @@ class Relaxation {
 }
 
 module.exports = async (collection, validate, opts) => {
+    opts.orderings = {
+        // We always have this one available.
+        created: {
+            fields: [
+                { $createdAt: 1 }
+            ]
+        },
+
+        ...opts.orderings
+    };
+
     const [ neededIndexSpecs, unneededIndexNames ] =
             await planIndexes(collection, opts);
 
@@ -134,25 +140,8 @@ function buildDesiredIndexSpecs(spec, opts) {
     const desiredIndexes = [];
     const suggestedIndexNames = new Map();
 
-    const orderings = {
-
-        // We always have this one available.
-        created: {
-            fields: [
-                { $createdAt: 1 }
-            ]
-        },
-
-        ...spec
-    };
-
-    for (const [name, spec] of Object.entries(orderings)) {
-        const mongoIndexKey = toMongoIndexKey(spec.fields, opts)
-
-        // Always the final tie-breaker.
-        if (!('id' in mongoIndexKey)) {
-            mongoIndexKey.id = 1;
-        }
+    for (const [name, spec] of Object.entries(opts.orderings)) {
+        const mongoIndexKey = orderingToIndexKeys(spec.fields, opts)
 
         // The index spec as it will go to Mongo's `createIndexes()`
         const indexEntry = {
@@ -242,49 +231,6 @@ async function planIndexes(collection, opts) {
         neededIndexSpecs,
         unneededIndexNames
     ];
-}
-
-function toMongoIndexKey(relaxIndexKeyList, opts) {
-    return relaxIndexKeyList.reduce((accum = {}, relaxKeyEntry) => {
-        if (Object.keys(relaxKeyEntry).length !== 1) {
-            throw new Error('fields entry must contain exactly one key.'
-                    + ' Got: ' + util.inspect(val));
-        }
-
-        const rawKey = Object.keys(relaxKeyEntry)[0];
-        const direction = relaxKeyEntry[rawKey];
-
-        if (direction !== 1 && direction !== -1) {
-            throw new Error(`for index field "${rawKey}", must specify 1 or -1 `
-                    + `as a direction. Got: ${util.inspect(direction)}`);
-        }
-
-        let mongoFieldName;
-        if (rawKey.startsWith('$') && !rawKey.startsWith('$$')) {
-            mongoFieldName = indexMetafields[rawKey.substring(1)];
-
-            if (!mongoFieldName) {
-                throw new Error('No such metafield: ' + rawKey);
-            }
-        }
-        else {
-            const escapedRawKey =
-                    rawKey.startsWith('$$') ? rawKey.substring(1) : rawKey;
-
-            // Take the user's keyspec, and run it first through our own
-            // `toMongoDoc()` (to, for example, ensure that if they said "id"
-            // we'll correctly remap that to SbOptEnt's "_id"), then run it
-            // through SbOptEnt's `translateIndexKey()` to make sure we're
-            // targeting SbOptEnt-prefixed fields.
-            mongoFieldName = Object.keys(
-                    SbOptimisticEntityCollection.translateIndexKey(toMongoDoc({
-                        [escapedRawKey]: relaxKeyEntry[rawKey]
-                    })))[0];
-        }
-
-        accum[mongoFieldName] = relaxKeyEntry[rawKey];
-        return accum;
-    }, {});
 }
 
 function toMongoIndexName(relaxIndexKeyList) {

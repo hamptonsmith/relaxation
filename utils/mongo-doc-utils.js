@@ -1,33 +1,25 @@
 'use strict';
 
+const fieldNameUtils = require('./field-name-utils');
+
 module.exports = {
     fromMongoDoc(doc) {
-        const result = Object.fromEntries(Object.entries(doc)
+        return Object.fromEntries(Object.entries(doc)
                 .map(([key, value]) => [
-                    key.startsWith('__') ? key.substring(2) : key,
+                    fieldNameUtils.mongoToRelax(key),
                     value
-                ]));
+                ])
 
-        if ('_id' in result) {
-            result.id = result._id;
-            delete result._id;
-        }
-
-        return result;
+                // Some mongo fields (e.g., createdAt_sboe) shouldn't be
+                // returned as part of the entry value
+                .filter(([key, value]) => key !== null));
     },
 
     toMongoDoc(entity) {
-        const result = Object.fromEntries(Object.entries(entity)
+        return Object.fromEntries(Object.entries(entity)
                 .map(([key, value]) => [
-                    key.startsWith('_') ? `__${key}` : key,
+                    fieldNameUtils.relaxToMongo(key),
                     value
                 ]));
-
-        if ('id' in result) {
-            result._id = result.id;
-            delete result.id;
-        }
-
-        return result;
     }
 };

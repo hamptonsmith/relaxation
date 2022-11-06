@@ -19,25 +19,26 @@ module.exports = (router, relax) => router.patch('/:id',
                 + '`application/json-patch+json`');
     }
 
-    let value;
+    let document;
     try {
-        ({ value } = await relax.collection.updateOneRecord(
+        ({ document } = await relax.collection.updateOneRecord(
                 { _id: parsedId },
-                (doc, { version }) => {
+                document => {
                     if (ctx.request.ifMatch &&
-                            !ctx.request.ifMatch.some(strongCompare(version))) {
+                            !ctx.request.ifMatch.some(
+                                    strongCompare(document.version_sboe))) {
                         throw errors.preconditionFailed(
                                 `If-Match ${ctx.get('If-Match')}`);
                     }
 
                     if (ctx.request.ifNoneMatch &&
                             ctx.request.ifNoneMatch.some(
-                                    weakCompare(version))) {
+                                    weakCompare(document.version_sboe))) {
                         throw errors.preconditionFailed(
                                 `If-None-Match ${ctx.get('If-None-Match')}`);
                     }
 
-                    const newDoc = fromMongoDoc(doc);
+                    const newDoc = fromMongoDoc(document);
                     jsonPatch.applyPatch(newDoc, ctx.request.body);
 
                     relax.validate(newDoc);
@@ -50,11 +51,9 @@ module.exports = (router, relax) => router.patch('/:id',
             throw errors.preconditionFailed(e.message, null, e);
         }
 
-        console.log(e);
-
         throw errors.unexpectedError(e);
     }
 
     ctx.status = 200;
-    ctx.body = fromMongoDoc(value);
+    ctx.body = fromMongoDoc(document);
 });

@@ -9,18 +9,19 @@ const { strongCompare, weakCompare } =
 module.exports = (router, relax) => router.delete('/:id', async (ctx, next) => {
     const parsedId = relax.parseUrlId(ctx.params.id);
 
-    const { value, version } = await relax.collection.deleteOne(
-            { _id: parsedId }, {
-                confirmDelete: (doc, { version }) => {
-                    if (ctx.request.ifMatch &&
-                            !ctx.request.ifMatch.some(strongCompare(version))) {
+    await relax.collection.deleteOneRecord(
+            { _id: parsedId },
+            {
+                confirmDelete: (doc) => {
+                    if (ctx.request.ifMatch && !ctx.request.ifMatch.some(
+                            strongCompare(doc.version_sboe))) {
                         throw errors.preconditionFailed(
                                 `If-Match ${ctx.get('If-Match')}`);
                     }
 
                     if (ctx.request.ifNoneMatch &&
                             ctx.request.ifNoneMatch.some(
-                                    weakCompare(version))) {
+                                    weakCompare(doc.version_sboe))) {
                         throw errors.preconditionFailed(
                                 `If-None-Match ${ctx.get('If-None-Match')}`);
                     }
