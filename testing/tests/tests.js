@@ -89,7 +89,6 @@ test('list with specified first', cleanAxiosErrors(async t => {
 }));
 
 test('list multiple pages with default first', cleanAxiosErrors(async t => {
-    t.timeout(40000);
     const r = await testRelax(t, () => {});
 
     await postMany(r, 160, { name: 'doc {{i}}'});
@@ -112,7 +111,392 @@ test('list multiple pages with default first', cleanAxiosErrors(async t => {
     t.deepEqual(results.length, 160);
 }));
 
-test('get - not found', async t => {
+test('list multiple pages with specified first', cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {});
+
+    await postMany(r, 160, { name: 'doc {{i}}'});
+
+    // Give the index a sec to catch up.
+    await sleep();
+
+    let next = '/';
+    let results = [];
+    while (next) {
+        const { data: listData, headers, status: listStatus } =
+                await r.get(next, { params: { first: 20 } });
+
+        t.truthy(listData.length <= 20);
+
+        t.is(listStatus, 200);
+
+        results = results.concat(listData);
+        next = toRelative(new LinkHeader(headers.link).rel('next')[0]?.uri);
+    }
+
+    t.deepEqual(results.length, 160);
+}));
+
+test('list multiple pages with specified order', cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            orderings: {
+                byName: {
+                    fields: [
+                        { name: 1 }
+                    ]
+                }
+            }
+        }
+    });
+
+    await r.post('/', { name: 'thing 5' });
+    await r.post('/', { name: 'thing 7' });
+    await r.post('/', { name: 'thing 3' });
+    await r.post('/', { name: 'thing 8' });
+    await r.post('/', { name: 'thing 2' });
+    await r.post('/', { name: 'thing 6' });
+    await r.post('/', { name: 'thing 4' });
+    await r.post('/', { name: 'thing 1' });
+    await r.post('/', { name: 'thing 9' });
+    await r.post('/', { name: 'thing 0' });
+
+    // Give the index a sec to catch up.
+    await sleep();
+
+    const { data: listData, headers, status: listStatus } =
+            await r.get('/', { params: { order: 'byName' } });
+
+    t.is(listStatus, 200);
+    t.deepEqual(listData.map(({ name }) => name), [
+        'thing 0', 'thing 1', 'thing 2', 'thing 3', 'thing 4', 'thing 5',
+        'thing 6', 'thing 7', 'thing 8', 'thing 9'
+    ]);
+}));
+
+test('default filter <', cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            orderings: {
+                byName: {
+                    fields: [
+                        { name: 1 }
+                    ]
+                }
+            }
+        }
+    });
+
+    await r.post('/', { name: 'thing 5' });
+    await r.post('/', { name: 'thing 7' });
+    await r.post('/', { name: 'thing 3' });
+    await r.post('/', { name: 'thing 8' });
+    await r.post('/', { name: 'thing 2' });
+    await r.post('/', { name: 'thing 6' });
+    await r.post('/', { name: 'thing 4' });
+    await r.post('/', { name: 'thing 1' });
+    await r.post('/', { name: 'thing 9' });
+    await r.post('/', { name: 'thing 0' });
+
+    // Give the index a sec to catch up.
+    await sleep();
+
+    const { data: listData, headers, status: listStatus } =
+            await r.get('/', {
+                params: {
+                    filter: 'name<thing 5',
+                    order: 'byName'
+                }
+            });
+
+    t.is(listStatus, 200);
+    t.deepEqual(listData.map(({ name }) => name), [
+        'thing 0', 'thing 1', 'thing 2', 'thing 3', 'thing 4'
+    ]);
+}));
+
+test('default filter <=', cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            orderings: {
+                byName: {
+                    fields: [
+                        { name: 1 }
+                    ]
+                }
+            }
+        }
+    });
+
+    await r.post('/', { name: 'thing 5' });
+    await r.post('/', { name: 'thing 7' });
+    await r.post('/', { name: 'thing 3' });
+    await r.post('/', { name: 'thing 8' });
+    await r.post('/', { name: 'thing 2' });
+    await r.post('/', { name: 'thing 6' });
+    await r.post('/', { name: 'thing 4' });
+    await r.post('/', { name: 'thing 1' });
+    await r.post('/', { name: 'thing 9' });
+    await r.post('/', { name: 'thing 0' });
+
+    // Give the index a sec to catch up.
+    await sleep();
+
+    const { data: listData, headers, status: listStatus } =
+            await r.get('/', {
+                params: {
+                    filter: 'name<=thing 5',
+                    order: 'byName'
+                }
+            });
+
+    t.is(listStatus, 200);
+    t.deepEqual(listData.map(({ name }) => name), [
+        'thing 0', 'thing 1', 'thing 2', 'thing 3', 'thing 4', 'thing 5'
+    ]);
+}));
+
+test('default filter =', cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            orderings: {
+                byName: {
+                    fields: [
+                        { name: 1 }
+                    ]
+                }
+            }
+        }
+    });
+
+    await r.post('/', { name: 'thing 5' });
+    await r.post('/', { name: 'thing 7' });
+    await r.post('/', { name: 'thing 3' });
+    await r.post('/', { name: 'thing 8' });
+    await r.post('/', { name: 'thing 2' });
+    await r.post('/', { name: 'thing 6' });
+    await r.post('/', { name: 'thing 4' });
+    await r.post('/', { name: 'thing 1' });
+    await r.post('/', { name: 'thing 9' });
+    await r.post('/', { name: 'thing 0' });
+
+    // Give the index a sec to catch up.
+    await sleep();
+
+    const { data: listData, headers, status: listStatus } =
+            await r.get('/', {
+                params: {
+                    filter: 'name=thing 5',
+                    order: 'byName'
+                }
+            });
+
+    t.is(listStatus, 200);
+    t.deepEqual(listData.map(({ name }) => name), ['thing 5']);
+}));
+
+test('default filter >=', cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            orderings: {
+                byName: {
+                    fields: [
+                        { name: 1 }
+                    ]
+                }
+            }
+        }
+    });
+
+    await r.post('/', { name: 'thing 5' });
+    await r.post('/', { name: 'thing 7' });
+    await r.post('/', { name: 'thing 3' });
+    await r.post('/', { name: 'thing 8' });
+    await r.post('/', { name: 'thing 2' });
+    await r.post('/', { name: 'thing 6' });
+    await r.post('/', { name: 'thing 4' });
+    await r.post('/', { name: 'thing 1' });
+    await r.post('/', { name: 'thing 9' });
+    await r.post('/', { name: 'thing 0' });
+
+    // Give the index a sec to catch up.
+    await sleep();
+
+    const { data: listData, headers, status: listStatus } =
+            await r.get('/', {
+                params: {
+                    filter: 'name>=thing 5',
+                    order: 'byName'
+                }
+            });
+
+    t.is(listStatus, 200);
+    t.deepEqual(listData.map(({ name }) => name), [
+        'thing 5', 'thing 6', 'thing 7', 'thing 8', 'thing 9'
+    ]);
+}));
+
+test('default filter >', cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            orderings: {
+                byName: {
+                    fields: [
+                        { name: 1 }
+                    ]
+                }
+            }
+        }
+    });
+
+    await r.post('/', { name: 'thing 5' });
+    await r.post('/', { name: 'thing 7' });
+    await r.post('/', { name: 'thing 3' });
+    await r.post('/', { name: 'thing 8' });
+    await r.post('/', { name: 'thing 2' });
+    await r.post('/', { name: 'thing 6' });
+    await r.post('/', { name: 'thing 4' });
+    await r.post('/', { name: 'thing 1' });
+    await r.post('/', { name: 'thing 9' });
+    await r.post('/', { name: 'thing 0' });
+
+    // Give the index a sec to catch up.
+    await sleep();
+
+    const { data: listData, headers, status: listStatus } =
+            await r.get('/', {
+                params: {
+                    filter: 'name>thing 5',
+                    order: 'byName'
+                }
+            });
+
+    t.is(listStatus, 200);
+    t.deepEqual(listData.map(({ name }) => name), [
+        'thing 6', 'thing 7', 'thing 8', 'thing 9'
+    ]);
+}));
+
+test('multiple filters - comma', cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            orderings: {
+                byName: {
+                    fields: [
+                        { name: 1 }
+                    ]
+                }
+            }
+        }
+    });
+
+    await r.post('/', { name: 'thing 5' });
+    await r.post('/', { name: 'thing 7' });
+    await r.post('/', { name: 'thing 3' });
+    await r.post('/', { name: 'thing 8' });
+    await r.post('/', { name: 'thing 2' });
+    await r.post('/', { name: 'thing 6' });
+    await r.post('/', { name: 'thing 4' });
+    await r.post('/', { name: 'thing 1' });
+    await r.post('/', { name: 'thing 9' });
+    await r.post('/', { name: 'thing 0' });
+
+    // Give the index a sec to catch up.
+    await sleep();
+
+    const { data: listData, headers, status: listStatus } =
+            await r.get('/', {
+                params: {
+                    filter: 'name<=thing 5,name>thing 1',
+                    order: 'byName'
+                }
+            });
+
+    t.is(listStatus, 200);
+    t.deepEqual(listData.map(({ name }) => name), [
+        'thing 2', 'thing 3', 'thing 4', 'thing 5'
+    ]);
+}));
+
+test('multiple filters - repeated param', cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            orderings: {
+                byName: {
+                    fields: [
+                        { name: 1 }
+                    ]
+                }
+            }
+        }
+    });
+
+    await r.post('/', { name: 'thing 5' });
+    await r.post('/', { name: 'thing 7' });
+    await r.post('/', { name: 'thing 3' });
+    await r.post('/', { name: 'thing 8' });
+    await r.post('/', { name: 'thing 2' });
+    await r.post('/', { name: 'thing 6' });
+    await r.post('/', { name: 'thing 4' });
+    await r.post('/', { name: 'thing 1' });
+    await r.post('/', { name: 'thing 9' });
+    await r.post('/', { name: 'thing 0' });
+
+    // Give the index a sec to catch up.
+    await sleep();
+
+    const { data: listData, headers, status: listStatus } = await r.get(
+            '/?order=byName&filter=name<=thing 5&filter=name>thing 1');
+
+    t.is(listStatus, 200);
+    t.deepEqual(listData.map(({ name }) => name), [
+        'thing 2', 'thing 3', 'thing 4', 'thing 5'
+    ]);
+}));
+
+test('filter keys and values uri decoded', cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            orderings: {
+                byName: {
+                    fields: [
+                        { '{"}': 1 }
+                    ]
+                }
+            }
+        }
+    });
+
+    await r.post('/', { '{"}': '{"} 5' });
+    await r.post('/', { '{"}': '{"} 7' });
+    await r.post('/', { '{"}': '{"} 3' });
+    await r.post('/', { '{"}': '{"} 8' });
+    await r.post('/', { '{"}': '{"} 2' });
+    await r.post('/', { '{"}': '{"} 6' });
+    await r.post('/', { '{"}': '{"} 4' });
+    await r.post('/', { '{"}': '{"} 1' });
+    await r.post('/', { '{"}': '{"} 9' });
+    await r.post('/', { '{"}': '{"} 0' });
+
+    // Give the index a sec to catch up.
+    await sleep();
+
+    const encoded = encodeURIComponent('{"}');
+
+    const { data: listData, headers, status: listStatus } =
+            await r.get('/', {
+                params: {
+                    filter: `${encoded}>${encoded} 5`,
+                    order: 'byName'
+                }
+            });
+
+    t.is(listStatus, 200);
+    t.deepEqual(listData.map(doc => doc['{"}']), [
+        '{"} 6', '{"} 7', '{"} 8', '{"} 9'
+    ]);
+}));
+
+test('get - not found', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {}, {
         constructorOpts: {
             generateId: () => 'abc',
@@ -123,9 +507,9 @@ test('get - not found', async t => {
     const e = await t.throwsAsync(r.get(`/nonesuch`));
 
     t.is(e.response.status, 404);
-});
+}));
 
-test('get - if-match 200', async t => {
+test('get - if-match 200', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
@@ -146,9 +530,9 @@ test('get - if-match 200', async t => {
         foo: 'fooval',
         bar: 'barval'
     });
-});
+}));
 
-test('get - if-match star 200', async t => {
+test('get - if-match star 200', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData } = await r.post('/', {
@@ -169,9 +553,9 @@ test('get - if-match star 200', async t => {
         foo: 'fooval',
         bar: 'barval'
     });
-});
+}));
 
-test('get - if-match weak -> 412', async t => {
+test('get - if-match weak -> 412', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
@@ -186,9 +570,9 @@ test('get - if-match weak -> 412', async t => {
     }));
 
     t.is(error.response.status, 412);
-});
+}));
 
-test('get - if-match multiple 200', async t => {
+test('get - if-match multiple 200', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
@@ -209,9 +593,9 @@ test('get - if-match multiple 200', async t => {
         foo: 'fooval',
         bar: 'barval'
     });
-});
+}));
 
-test('get - if-match 412', async t => {
+test('get - if-match 412', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
@@ -226,9 +610,9 @@ test('get - if-match 412', async t => {
     }));
 
     t.is(error.response.status, 412);
-});
+}));
 
-test('get - if-none-match 200', async t => {
+test('get - if-none-match 200', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
@@ -249,9 +633,9 @@ test('get - if-none-match 200', async t => {
         foo: 'fooval',
         bar: 'barval'
     });
-});
+}));
 
-test('get - if-none-match 304', async t => {
+test('get - if-none-match 304', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
@@ -266,9 +650,9 @@ test('get - if-none-match 304', async t => {
     }));
 
     t.is(error.response.status, 304);
-});
+}));
 
-test('get - if-none-match multiple', async t => {
+test('get - if-none-match multiple', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
@@ -283,9 +667,9 @@ test('get - if-none-match multiple', async t => {
     }));
 
     t.is(error.response.status, 304);
-});
+}));
 
-test('get - if-none-match weak 304', async t => {
+test('get - if-none-match weak 304', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
@@ -300,9 +684,9 @@ test('get - if-none-match weak 304', async t => {
     }));
 
     t.is(error.response.status, 304);
-});
+}));
 
-test('get - if-none-match star 304', async t => {
+test('get - if-none-match star 304', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
@@ -317,9 +701,9 @@ test('get - if-none-match star 304', async t => {
     }));
 
     t.is(error.response.status, 304);
-});
+}));
 
-test('basic post, patch, and get', async t => {
+test('basic post, patch, and get', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData } = await r.post('/', {
@@ -353,9 +737,9 @@ test('basic post, patch, and get', async t => {
         foo: { waldo: 'plugh' },
         bazz: 'bazzval'
     });
-});
+}));
 
-test('patch - if-match 200', async t => {
+test('patch - if-match 200', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
@@ -380,9 +764,9 @@ test('patch - if-match 200', async t => {
         foo: 'fooval2',
         bar: 'barval'
     });
-});
+}));
 
-test('patch - if-match star 200', async t => {
+test('patch - if-match star 200', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData } = await r.post('/', {
@@ -407,9 +791,9 @@ test('patch - if-match star 200', async t => {
         foo: 'fooval2',
         bar: 'barval'
     });
-});
+}));
 
-test('patch - if-match weak -> 412', async t => {
+test('patch - if-match weak -> 412', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
@@ -430,9 +814,9 @@ test('patch - if-match weak -> 412', async t => {
     ));
 
     t.is(error.response.status, 412);
-});
+}));
 
-test('patch - if-match multiple 200', async t => {
+test('patch - if-match multiple 200', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
@@ -457,9 +841,9 @@ test('patch - if-match multiple 200', async t => {
         foo: 'fooval2',
         bar: 'barval'
     });
-});
+}));
 
-test('patch - if-match 412', async t => {
+test('patch - if-match 412', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
@@ -479,9 +863,9 @@ test('patch - if-match 412', async t => {
         }));
 
     t.is(error.response.status, 412);
-});
+}));
 
-test('patch - if-none-match 200', async t => {
+test('patch - if-none-match 200', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
@@ -507,9 +891,9 @@ test('patch - if-none-match 200', async t => {
         foo: 'fooval2',
         bar: 'barval'
     });
-});
+}));
 
-test('patch - if-none-match 412', async t => {
+test('patch - if-none-match 412', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
@@ -529,9 +913,9 @@ test('patch - if-none-match 412', async t => {
             }));
 
     t.is(error.response.status, 412);
-});
+}));
 
-test('patch - if-none-match multiple', async t => {
+test('patch - if-none-match multiple', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
@@ -552,9 +936,9 @@ test('patch - if-none-match multiple', async t => {
             }));
 
     t.is(error.response.status, 412);
-});
+}));
 
-test('patch - if-none-match weak 412', async t => {
+test('patch - if-none-match weak 412', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
@@ -574,9 +958,9 @@ test('patch - if-none-match weak 412', async t => {
             }));
 
     t.is(error.response.status, 412);
-});
+}));
 
-test('patch - if-none-match star 412', async t => {
+test('patch - if-none-match star 412', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
@@ -595,9 +979,9 @@ test('patch - if-none-match star 412', async t => {
             }));
 
     t.is(error.response.status, 412);
-});
+}));
 
-test('basic put and get', async t => {
+test('basic put and get', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {}, {
         constructorOpts: {
             generateId: () => 'abc',
@@ -625,9 +1009,9 @@ test('basic put and get', async t => {
         foo: 'fooval',
         bar: 'barval'
     });
-});
+}));
 
-test('put - if-match 200', async t => {
+test('put - if-match 200', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
@@ -652,9 +1036,9 @@ test('put - if-match 200', async t => {
         foo: 'fooval2',
         bar: 'barval2'
     });
-});
+}));
 
-test('put - if-match star 200', async t => {
+test('put - if-match star 200', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData } = await r.post('/', {
@@ -679,9 +1063,9 @@ test('put - if-match star 200', async t => {
         foo: 'fooval2',
         bar: 'barval2'
     });
-});
+}));
 
-test('put - if-match weak -> 412', async t => {
+test('put - if-match weak -> 412', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
@@ -702,9 +1086,9 @@ test('put - if-match weak -> 412', async t => {
     ));
 
     t.is(error.response.status, 412);
-});
+}));
 
-test('put - if-match multiple 200', async t => {
+test('put - if-match multiple 200', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
@@ -729,9 +1113,9 @@ test('put - if-match multiple 200', async t => {
         foo: 'fooval2',
         bar: 'barval2'
     });
-});
+}));
 
-test('put - if-match 412', async t => {
+test('put - if-match 412', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
@@ -751,9 +1135,9 @@ test('put - if-match 412', async t => {
         }));
 
     t.is(error.response.status, 412);
-});
+}));
 
-test('put - if-none-match 200', async t => {
+test('put - if-none-match 200', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
@@ -779,9 +1163,9 @@ test('put - if-none-match 200', async t => {
         foo: 'fooval2',
         bar: 'barval2'
     });
-});
+}));
 
-test('put - if-none-match 412', async t => {
+test('put - if-none-match 412', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
@@ -801,9 +1185,9 @@ test('put - if-none-match 412', async t => {
             }));
 
     t.is(error.response.status, 412);
-});
+}));
 
-test('put - if-none-match multiple', async t => {
+test('put - if-none-match multiple', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
@@ -824,9 +1208,9 @@ test('put - if-none-match multiple', async t => {
             }));
 
     t.is(error.response.status, 412);
-});
+}));
 
-test('put - if-none-match weak 412', async t => {
+test('put - if-none-match weak 412', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
@@ -846,9 +1230,9 @@ test('put - if-none-match weak 412', async t => {
             }));
 
     t.is(error.response.status, 412);
-});
+}));
 
-test('put - if-none-match star 412', async t => {
+test('put - if-none-match star 412', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
@@ -868,9 +1252,9 @@ test('put - if-none-match star 412', async t => {
             }));
 
     t.is(error.response.status, 412);
-});
+}));
 
-test('put - if-none-match star + nothing -> 200', async t => {
+test('put - if-none-match star + nothing -> 200', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {}, {
         constructorOpts: {
             generateId: () => 'abc',
@@ -896,9 +1280,9 @@ test('put - if-none-match star + nothing -> 200', async t => {
         foo: 'fooval2',
         bar: 'barval2'
     });
-});
+}));
 
-test('basic post and delete', async t => {
+test('basic post and delete', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData } = await r.post('/', {
@@ -911,9 +1295,9 @@ test('basic post and delete', async t => {
     const e = await t.throwsAsync(r.get(`/${postData.id}`));
 
     t.is(e.response.status, 404);
-});
+}));
 
-test('delete - if-match 204', async t => {
+test('delete - if-match 204', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
@@ -929,9 +1313,9 @@ test('delete - if-match 204', async t => {
     });
 
     t.is(deleteStatus, 204);
-});
+}));
 
-test('delete - if-match star 204', async t => {
+test('delete - if-match star 204', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData } = await r.post('/', {
@@ -947,9 +1331,9 @@ test('delete - if-match star 204', async t => {
     });
 
     t.is(deleteStatus, 204);
-});
+}));
 
-test('delete - if-match weak -> 412', async t => {
+test('delete - if-match weak -> 412', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
@@ -964,9 +1348,9 @@ test('delete - if-match weak -> 412', async t => {
     }));
 
     t.is(error.response.status, 412);
-});
+}));
 
-test('delete - if-match multiple 204', async t => {
+test('delete - if-match multiple 204', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
@@ -982,9 +1366,9 @@ test('delete - if-match multiple 204', async t => {
     });
 
     t.is(deleteStatus, 204);
-});
+}));
 
-test('delete - if-match 412', async t => {
+test('delete - if-match 412', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
@@ -999,9 +1383,9 @@ test('delete - if-match 412', async t => {
     }));
 
     t.is(error.response.status, 412);
-});
+}));
 
-test('delete - if-none-match 204', async t => {
+test('delete - if-none-match 204', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
@@ -1017,9 +1401,9 @@ test('delete - if-none-match 204', async t => {
     });
 
     t.is(deleteStatus, 204);
-});
+}));
 
-test('delete - if-none-match 412', async t => {
+test('delete - if-none-match 412', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
@@ -1034,9 +1418,9 @@ test('delete - if-none-match 412', async t => {
     }));
 
     t.is(error.response.status, 412);
-});
+}));
 
-test('delete - if-none-match multiple', async t => {
+test('delete - if-none-match multiple', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
@@ -1051,9 +1435,9 @@ test('delete - if-none-match multiple', async t => {
     }));
 
     t.is(error.response.status, 412);
-});
+}));
 
-test('delete - if-none-match weak 412', async t => {
+test('delete - if-none-match weak 412', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
@@ -1068,9 +1452,9 @@ test('delete - if-none-match weak 412', async t => {
     }));
 
     t.is(error.response.status, 412);
-});
+}));
 
-test('delete - if-none-match star 412', async t => {
+test('delete - if-none-match star 412', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
     const { data: postData, headers: postHeaders } = await r.post('/', {
@@ -1085,7 +1469,7 @@ test('delete - if-none-match star 412', async t => {
     }));
 
     t.is(error.response.status, 412);
-});
+}));
 
 function cleanAxiosErrors(fn) {
     return async t => {
@@ -1116,10 +1500,14 @@ function cleanAxiosErrors(fn) {
     };
 }
 
-async function postMany(relax, count, template) {
+async function postMany(relax, count, template, op) {
+    if (!op) {
+        op = doc => relax.post('/', doc);
+    }
+
     const promises = [];
     for (let i = 0; i < count; i++) {
-        promises.push(relax.post('/', templateObj(template, { i })));
+        promises.push(op(templateObj(template, { i }), i));
     }
 
     await Promise.all(promises);

@@ -2,10 +2,12 @@
 
 const bodyparser = require('koa-bodyparser');
 const deepEqual = require('deep-equal');
+const clone = require('clone');
 const errors = require('./errors');
 const http = require('http');
 const jsonPatch = require('fast-json-patch');
 const Koa = require('koa');
+const lodash = require('lodash');
 const objectId = require("bson-objectid");
 const OptEntCollection = require('@shieldsbetter/sb-optimistic-entities')
 const orderingToIndexKeys = require('./utils/ordering-to-index-keys');
@@ -98,8 +100,10 @@ class Relaxation {
     }
 }
 
-module.exports = async (collection, validate, opts) => {
-    opts.orderings = {
+function normalizeOpts(o) {
+    o = clone(o);
+
+    o.orderings = {
         // We always have this one available.
         created: {
             fields: [
@@ -107,8 +111,47 @@ module.exports = async (collection, validate, opts) => {
             ]
         },
 
-        ...opts.orderings
+        ...o.orderings
     };
+
+    for (const ordering of Object.values(o.orderings)) {
+        if (!ordering.fields) {
+            ordering.fields = [];
+        }
+
+        if (!ordering.fields.some(f => Object.keys(f)[0] === 'id')) {
+            ordering.fields.push({ id: 1 });
+        }
+
+        if (!ordering.filters) {
+            ordering.filters = [];
+        }
+
+        if (lodash.get(ordering, 'defaultFilters', true)) {
+            const ops = [];
+            for (const field of ordering.fields) {
+                const key = Object.keys(field)[0];
+
+                ops.push([[key, 'eq'], (k, v) => ({ [k]: { $eq: v }})]);
+                ops.push([[key, 'lt'], (k, v) => ({ [k]: { $lt: v }})]);
+                ops.push([[key, 'gt'], (k, v) => ({ [k]: { $gt: v }})]);
+                ops.push([[key, 'lte'], (k, v) => ({ [k]: { $lte: v }})]);
+                ops.push([[key, 'gte'], (k, v) => ({ [k]: { $gte: v }})]);
+            }
+
+            for (const [path, fn] of ops) {
+                if (!lodash.has(ordering.filters, [...path, 'toMongo'])) {
+                    lodash.set(ordering.filters, [...path, 'toMongo'], fn);
+                }
+            }
+        }
+    }
+
+    return o;
+}
+
+module.exports = async (collection, validate, opts) => {
+    opts = normalizeOpts(opts);
 
     const [ neededIndexSpecs, unneededIndexNames ] =
             await planIndexes(collection, opts);

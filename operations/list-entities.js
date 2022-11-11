@@ -6,6 +6,7 @@ const errors = require('../errors');
 const fieldNames = require('../utils/field-name-utils');
 const jsonPointer = require('json-pointer');
 const LinkHeader = require('http-link-header');
+const lodash = require('lodash');
 const ObjectId = require('bson-objectid');
 const orderingToIndexKeys = require('../utils/ordering-to-index-keys');
 const util = require('util');
@@ -17,23 +18,35 @@ const { strongCompare, weakCompare } =
 const permittedOrderingValueTypes = ['string', 'number', 'boolean']
         .reduce((a, v) => { a[v] = true; return a; }, {});
 
+const filterOps = {
+    '<': 'lt',
+    '<=': 'lte',
+    '=': 'eq',
+    '>=': 'gte',
+    '>': 'gt'
+};
 const orderDirections = { '1': '$gt', '-1': '$lt' };
 
 module.exports = (router, relax) => router.get('/', async (ctx, next) => {
     const parsedId = relax.parseUrlId(ctx.params.id);
 
-    const ordering =
-            relax.orderings[ctx.request.query.order || 'created']?.fields;
-    const indexKeys = orderingToIndexKeys(ordering);
+    const ordering = relax.orderings[ctx.request.query.order || 'created'];
+    const indexKeys = orderingToIndexKeys(ordering.fields);
     const indexKeysEntries = Object.entries(indexKeys);
 
-    const after = parseAfter(ctx.request.query.after, indexKeys);
+    const after = parseAfter(ctx.request.query.after, indexKeys)
+    const filter = parseFilter(ctx.request.query.filter, ordering.filters);
+
+    const mongoQuery = (filter && after)
+            ? { $and: [ filter, after ] }
+            : (filter || after);
+
     const first = Math.max(
             0, Math.min(
                 Number.parseInt(ctx.request.query.first || '50'),
                 500));
 
-    const pagePlusOne = await relax.collection.find(after, {
+    const pagePlusOne = await relax.collection.find(mongoQuery, {
         limit: first + 1,
         sort: indexKeysEntries
     }).toArray();
@@ -99,7 +112,7 @@ function value(o) {
 
 function parseAfter(after, indexKeys) {
     if (!after) {
-        return {};
+        return;
     }
 
     indexKeys = Object.entries(indexKeys)
@@ -143,4 +156,74 @@ function parseAfter(after, indexKeys) {
     }
 
     return result;
+}
+
+function parseFilter(filterEntries, filters) {
+    if (!filterEntries) {
+        return;
+    }
+
+    if (!Array.isArray(filterEntries)) {
+        filterEntries = [filterEntries];
+    }
+
+    const conjuncts = filterEntries
+            .map(e => e.split(','))
+            .flat()
+            .map(rawFilter => {
+                let key = '';
+                let operator = '';
+                let value = '';
+                for (const c of rawFilter) {
+                    switch (c) {
+                        case '<':
+                        case '=':
+                        case '>': {
+                            if (value) {
+                                throw new Error(
+                                        'Too many operators: ' + rawFilter);
+                            }
+
+                            operator += c;
+                            break;
+                        }
+                        default: {
+                            if (operator) {
+                                value += c;
+                            }
+                            else {
+                                key += c;
+                            }
+                            break;
+                        }
+                    }
+                }
+
+                if (!operator) {
+                    throw new Error('No operator: ' + rawFilter);
+                }
+
+                if (!['<', '<=', '=', '>=', '>'].includes(operator)) {
+                    throw new Error('Unknown operator: ' + operator);
+                }
+
+                key = decodeURIComponent(key);
+                value = decodeURIComponent(value);
+
+                const toMongo = lodash.get(
+                        filters, [key, filterOps[operator], 'toMongo']);
+
+                if (!toMongo) {
+                    throw new Error(
+                            `No operator "${operator}" for key "${key}".`);
+                }
+
+                const mongoQuery = toMongo(key, value);
+
+                return Array.isArray(mongoQuery) ? mongoQuery : [mongoQuery];
+            })
+            .flat();
+
+    // Some versions of MongoDb are picky about this.
+    return conjuncts.length > 1 ? { $and: conjuncts } : conjuncts[0];
 }
