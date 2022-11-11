@@ -210,15 +210,17 @@ function parseFilter(filterEntries, filters) {
                 key = decodeURIComponent(key);
                 value = decodeURIComponent(value);
 
-                const toMongo = lodash.get(
-                        filters, [key, filterOps[operator], 'toMongo']);
+                const parseValue = lodash.get(filters,
+                        [key, 'parseValue'], defaultValueParser);
+                const toMongo = lodash.get(filters,
+                        [key, 'operators', filterOps[operator], 'toMongo']);
 
                 if (!toMongo) {
                     throw new Error(
                             `No operator "${operator}" for key "${key}".`);
                 }
 
-                const mongoQuery = toMongo(key, value);
+                const mongoQuery = toMongo(key, parseValue(value));
 
                 return Array.isArray(mongoQuery) ? mongoQuery : [mongoQuery];
             })
@@ -226,4 +228,33 @@ function parseFilter(filterEntries, filters) {
 
     // Some versions of MongoDb are picky about this.
     return conjuncts.length > 1 ? { $and: conjuncts } : conjuncts[0];
+}
+
+function defaultValueParser(s) {
+    let result;
+
+    if (s === 'null') {
+        result = null;
+    }
+    else if (s === 'true') {
+        result = true;
+    }
+    else if (s === 'false') {
+        result = false;
+    }
+
+    // Standard separator chosen because it matches Javascript, not because I'm
+    // being USA-centric. ;)
+    else if (/(?:\d*\.)?\d+/.test(s)) {
+        result = Number.parseFloat(s);
+
+        if ('' + result !== s && '' + result !== '0' + s) {
+            throw new Error('Unrepresentable number.');
+        }
+    }
+    else {
+        result = s;
+    }
+
+    return result;
 }

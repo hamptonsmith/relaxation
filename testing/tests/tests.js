@@ -496,6 +496,165 @@ test('filter keys and values uri decoded', cleanAxiosErrors(async t => {
     ]);
 }));
 
+test('default parseValue - null', cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            orderings: {
+                byName: {
+                    fields: [
+                        { name: 1 }
+                    ]
+                }
+            }
+        }
+    });
+
+    await r.post('/', { name: 'thing 5' });
+    await r.post('/', { name: null });
+
+    // Give the index a sec to catch up.
+    await sleep();
+
+    const { data: listData, headers, status: listStatus } =
+            await r.get('/', {
+                params: {
+                    filter: 'name=null',
+                    order: 'byName'
+                }
+            });
+
+    t.is(listStatus, 200);
+    t.deepEqual(listData.map(({ name }) => name), [ null ]);
+}));
+
+test('default parseValue - true', cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            orderings: {
+                byName: {
+                    fields: [
+                        { name: 1 }
+                    ]
+                }
+            }
+        }
+    });
+
+    await r.post('/', { name: 'thing 5' });
+    await r.post('/', { name: true });
+    await r.post('/', { name: false });
+
+    // Give the index a sec to catch up.
+    await sleep();
+
+    const { data: listData, headers, status: listStatus } =
+            await r.get('/', {
+                params: {
+                    filter: 'name=true',
+                    order: 'byName'
+                }
+            });
+
+    t.is(listStatus, 200);
+    t.deepEqual(listData.map(({ name }) => name), [ true ]);
+}));
+
+test('default parseValue - false', cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            orderings: {
+                byName: {
+                    fields: [
+                        { name: 1 }
+                    ]
+                }
+            }
+        }
+    });
+
+    await r.post('/', { name: 'thing 5' });
+    await r.post('/', { name: true });
+    await r.post('/', { name: false });
+
+    // Give the index a sec to catch up.
+    await sleep();
+
+    const { data: listData, headers, status: listStatus } =
+            await r.get('/', {
+                params: {
+                    filter: 'name=false',
+                    order: 'byName'
+                }
+            });
+
+    t.is(listStatus, 200);
+    t.deepEqual(listData.map(({ name }) => name), [ false ]);
+}));
+
+test('default parseValue - number', cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            orderings: {
+                byAmplitude: {
+                    fields: [
+                        { amplitude: 1 }
+                    ]
+                }
+            }
+        }
+    });
+
+    await r.post('/', { amplitude: 0.5 });
+    await r.post('/', { amplitude: 1 });
+    await r.post('/', { amplitude: 1.5 });
+    await r.post('/', { amplitude: 2 });
+    await r.post('/', { amplitude: 2.5 });
+    await r.post('/', { amplitude: 3 });
+    await r.post('/', { amplitude: 3.5 });
+    await r.post('/', { amplitude: 4 });
+    await r.post('/', { amplitude: 4.5 });
+    await r.post('/', { amplitude: 5 });
+
+    // Give the index a sec to catch up.
+    await sleep();
+
+    let { data: listData, headers, status: listStatus } = await r.get('/', {
+        params: {
+            filter: 'amplitude>1.5',
+            order: 'byAmplitude'
+        }
+    });
+
+    t.is(listStatus, 200);
+    t.deepEqual(listData.map(({ amplitude }) => amplitude), [
+        2, 2.5, 3, 3.5, 4, 4.5, 5
+    ]);
+
+    ({ data: listData, headers, status: listStatus } = await r.get('/', {
+        params: {
+            filter: 'amplitude>2',
+            order: 'byAmplitude'
+        }
+    }));
+
+    t.is(listStatus, 200);
+    t.deepEqual(listData.map(({ amplitude }) => amplitude), [
+        2.5, 3, 3.5, 4, 4.5, 5
+    ]);
+
+    ({ data: listData, headers, status: listStatus } = await r.get('/', {
+        params: {
+            filter: 'amplitude>.5',
+            order: 'byAmplitude'
+        }
+    }));
+
+    t.is(listStatus, 200);
+    t.deepEqual(listData.map(({ amplitude }) => amplitude), [
+        1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5
+    ]);
+}));
+
 test('get - not found', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {}, {
         constructorOpts: {

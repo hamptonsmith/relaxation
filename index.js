@@ -18,18 +18,22 @@ const typeIs = require('type-is');
 
 class Relaxation {
     constructor(collection, validate, {
+        fromDb = (x => x),
         generateId,
         log = console.log,
         onUnexpectedError = (() => {}),
         orderings,
-        parseUrlId
+        parseUrlId,
+        toDb = (x => x)
     } = {}) {
         this.collection = new OptEntCollection(collection);
+        this.fromDb = fromDb;
         this.generateId = generateId || (() => undefined);
         this.log = log;
         this.onUnexpectedError = onUnexpectedError;
         this.orderings = orderings;
         this.parseUrlId = parseUrlId || (x => objectId(x));
+        this.toDb = toDb;
         this.validate = validate;
     }
 
@@ -132,11 +136,12 @@ function normalizeOpts(o) {
             for (const field of ordering.fields) {
                 const key = Object.keys(field)[0];
 
-                ops.push([[key, 'eq'], (k, v) => ({ [k]: { $eq: v }})]);
-                ops.push([[key, 'lt'], (k, v) => ({ [k]: { $lt: v }})]);
-                ops.push([[key, 'gt'], (k, v) => ({ [k]: { $gt: v }})]);
-                ops.push([[key, 'lte'], (k, v) => ({ [k]: { $lte: v }})]);
-                ops.push([[key, 'gte'], (k, v) => ({ [k]: { $gte: v }})]);
+                const prefix = [key, 'operators'];
+                ops.push([[...prefix, 'eq'], (k, v) => ({ [k]: { $eq: v }})]);
+                ops.push([[...prefix, 'lt'], (k, v) => ({ [k]: { $lt: v }})]);
+                ops.push([[...prefix, 'gt'], (k, v) => ({ [k]: { $gt: v }})]);
+                ops.push([[...prefix, 'lte'], (k, v) => ({ [k]: { $lte: v }})]);
+                ops.push([[...prefix, 'gte'], (k, v) => ({ [k]: { $gte: v }})]);
             }
 
             for (const [path, fn] of ops) {
