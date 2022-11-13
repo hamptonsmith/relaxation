@@ -10,6 +10,7 @@ const lodash = require('lodash');
 const ObjectId = require('bson-objectid');
 const orderingToIndexKeys = require('../utils/ordering-to-index-keys');
 const util = require('util');
+const validator = require('validator');
 
 const { fromMongoDoc, toMongoDoc } = require('../utils/mongo-doc-utils');
 const { strongCompare, weakCompare } =
@@ -220,7 +221,8 @@ function parseFilter(filterEntries, filters) {
                             `No operator "${operator}" for key "${key}".`);
                 }
 
-                const mongoQuery = toMongo(key, parseValue(value));
+                const mongoQuery = toMongo(
+                        fieldNames.relaxToMongo(key), parseValue(value));
 
                 return Array.isArray(mongoQuery) ? mongoQuery : [mongoQuery];
             })
@@ -242,10 +244,13 @@ function defaultValueParser(s) {
     else if (s === 'false') {
         result = false;
     }
+    else if (validator.isISO8601(s)) {
+        result = new Date(s);
+    }
 
     // Standard separator chosen because it matches Javascript, not because I'm
     // being USA-centric. ;)
-    else if (/(?:\d*\.)?\d+/.test(s)) {
+    else if (/^(?:\d*\.)?\d+$/.test(s)) {
         result = Number.parseFloat(s);
 
         if ('' + result !== s && '' + result !== '0' + s) {

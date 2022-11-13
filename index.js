@@ -21,12 +21,13 @@ class Relaxation {
         fromDb = (x => x),
         generateId,
         log = console.log,
+        nower,
         onUnexpectedError = (() => {}),
         orderings,
         parseUrlId,
         toDb = (x => x)
     } = {}) {
-        this.collection = new OptEntCollection(collection);
+        this.collection = new OptEntCollection(collection, { nower });
         this.fromDb = fromDb;
         this.generateId = generateId || (() => undefined);
         this.log = log;

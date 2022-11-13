@@ -24,7 +24,8 @@
     "koa-bodyparser": "^4.3.0",
     "lodash": "^4.17.21",
     "npm": "^8.19.2",
-    "type-is": "^1.6.18"
+    "type-is": "^1.6.18",
+    "validator": "^13.7.0"
   },
   "devDependencies": {
     "ava": "^4.2.0",

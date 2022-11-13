@@ -591,6 +591,42 @@ test('default parseValue - false', cleanAxiosErrors(async t => {
     t.deepEqual(listData.map(({ name }) => name), [ false ]);
 }));
 
+test('filter by $createdAt + default parseValue - date',
+        cleanAxiosErrors(async t => {
+    let now = (new Date('2000-01-01T12:00:00Z')).valueOf();
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            nower: () => now
+        }
+    });
+
+    await r.post('/', { index: 1 });
+
+    now = (new Date('2000-01-02T12:00:00Z')).valueOf();
+    await r.post('/', { index: 2 });
+
+    now = (new Date('2000-01-03T12:00:00Z')).valueOf();
+    await r.post('/', { index: 3 });
+
+    now = (new Date('2000-01-04T12:00:00Z')).valueOf();
+    await r.post('/', { index: 4 });
+
+    now = (new Date('2000-01-05T12:00:00Z')).valueOf();
+    await r.post('/', { index: 5 });
+
+    // Give the index a sec to catch up.
+    await sleep();
+
+    let { data: listData, headers, status: listStatus } = await r.get('/', {
+        params: {
+            filter: '$createdAt>2000-01-03T12:00:00Z'
+        }
+    });
+
+    t.is(listStatus, 200);
+    t.deepEqual(listData.map(({ index }) => index), [ 4, 5 ]);
+}));
+
 test('default parseValue - number', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {}, {
         constructorOpts: {
@@ -653,6 +689,107 @@ test('default parseValue - number', cleanAxiosErrors(async t => {
     t.deepEqual(listData.map(({ amplitude }) => amplitude), [
         1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5
     ]);
+}));
+
+test('filter by $updatedAt + default parseValue - date',
+        cleanAxiosErrors(async t => {
+    let now = (new Date('2000-01-01T12:00:00Z')).valueOf();
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            nower: () => now,
+            orderings: {
+                byUpdatedAt: {
+                    fields: [
+                        { $updatedAt: 1 }
+                    ]
+                }
+            }
+        }
+    });
+
+    await r.post('/', { index: 1 });
+
+    now = (new Date('2000-01-02T12:00:00Z')).valueOf();
+    await r.post('/', { index: 2 });
+
+    now = (new Date('2000-01-03T12:00:00Z')).valueOf();
+    await r.post('/', { index: 3 });
+
+    now = (new Date('2000-01-04T12:00:00Z')).valueOf();
+    await r.post('/', { index: 4 });
+
+    now = (new Date('2000-01-05T12:00:00Z')).valueOf();
+    await r.post('/', { index: 5 });
+
+    // Give the index a sec to catch up.
+    await sleep();
+
+    let { data: listData, headers, status: listStatus } = await r.get('/', {
+        params: {
+            order: 'byUpdatedAt',
+            filter: '$updatedAt>2000-01-03T12:00:00Z'
+        }
+    });
+
+    t.is(listStatus, 200);
+    t.deepEqual(listData.map(({ index }) => index), [ 4, 5 ]);
+}));
+
+test('filter by $eTag', cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            orderings: {
+                byETag: {
+                    fields: [
+                        { $eTag: 1 }
+                    ]
+                }
+            }
+        }
+    });
+
+    await r.post('/', {});
+    const { headers } = await r.post('/', {});
+    await r.post('/', {});
+
+    // Give the index a sec to catch up.
+    await sleep();
+
+    let { data: listData, status: listStatus } = await r.get('/', {
+        params: {
+            order: 'byETag',
+            filter: `$eTag=${JSON.parse(headers.etag)}`
+        }
+    });
+
+    t.is(listStatus, 200);
+    t.is(listData.length, 1);
+}));
+
+test('filter by id', cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            parseUrlId: x => x
+        }
+    });
+
+    await r.put('/a', {});
+    await r.put('/b', {});
+    await r.put('/c', {});
+    await r.put('/d', {});
+    await r.put('/e', {});
+
+    // Give the index a sec to catch up.
+    await sleep();
+
+    let { data: listData, status: listStatus } = await r.get('/', {
+        params: {
+            filter: `id>=b,id<e`
+        }
+    });
+
+    t.is(listStatus, 200);
+    t.deepEqual(listData.map(({ id }) => id ), [ 'b', 'c', 'd' ]);
 }));
 
 test('get - not found', cleanAxiosErrors(async t => {
