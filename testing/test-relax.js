@@ -11,7 +11,14 @@ module.exports = async (
 ) => {
     constructorOpts = {
         log: t.log.bind(t),
-        onUnexpectedError: e => { t.fail(e.stack); },
+        onUnexpectedError: e => {
+            let output = e.stack;
+            while (e.cause) {
+                output += '\n\nCaused by: ' + e.cause.stack;
+                e = e.cause;
+            }
+            t.fail(output);
+        },
 
         ...constructorOpts
     };

@@ -221,8 +221,7 @@ function parseFilter(filterEntries, filters) {
                             `No operator "${operator}" for key "${key}".`);
                 }
 
-                const mongoQuery = toMongo(
-                        fieldNames.relaxToMongo(key), parseValue(value));
+                const mongoQuery = toMongo(parseValue(value));
 
                 return Array.isArray(mongoQuery) ? mongoQuery : [mongoQuery];
             })

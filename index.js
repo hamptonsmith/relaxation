@@ -4,6 +4,7 @@ const bodyparser = require('koa-bodyparser');
 const deepEqual = require('deep-equal');
 const clone = require('clone');
 const errors = require('./errors');
+const fieldNameUtils = require('./utils/field-name-utils');
 const http = require('http');
 const jsonPatch = require('fast-json-patch');
 const Koa = require('koa');
@@ -135,14 +136,20 @@ function normalizeOpts(o) {
         if (lodash.get(ordering, 'defaultFilters', true)) {
             const ops = [];
             for (const field of ordering.fields) {
-                const key = Object.keys(field)[0];
+                const filterName = Object.keys(field)[0];
+                const mongoFieldPath =
+                        fieldNameUtils.relaxFieldSpecifierToMongo(filterName);
 
-                const prefix = [key, 'operators'];
-                ops.push([[...prefix, 'eq'], (k, v) => ({ [k]: { $eq: v }})]);
-                ops.push([[...prefix, 'lt'], (k, v) => ({ [k]: { $lt: v }})]);
-                ops.push([[...prefix, 'gt'], (k, v) => ({ [k]: { $gt: v }})]);
-                ops.push([[...prefix, 'lte'], (k, v) => ({ [k]: { $lte: v }})]);
-                ops.push([[...prefix, 'gte'], (k, v) => ({ [k]: { $gte: v }})]);
+                function buildFilter(opName) {
+                    return [
+                        [filterName, 'operators', opName],
+                        v => ({ [mongoFieldPath]: { [`$${opName}`]: v }})
+                    ];
+                }
+
+                for (const defaultOp of ['lte', 'lt', 'eq', 'gt', 'gte']) {
+                    ops.push(buildFilter(defaultOp));
+                }
             }
 
             for (const [path, fn] of ops) {

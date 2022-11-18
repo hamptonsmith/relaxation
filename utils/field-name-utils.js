@@ -12,47 +12,51 @@ const reverseAliases = Object.fromEntries(
 const metafields = {
     createdAt: 'createdAt_sboe',
     eTag: 'version_sboe',
-    id: '_id',
     updatedAt: 'updatedAt_sboe'
 };
 
-module.exports = {
-    mongoToRelax(m) {
-        let relaxFieldName;
-        if (reverseAliases[m]) {
-            relaxFieldName = reverseAliases[m];
-        }
-        else if (m.startsWith('__')) {
-            relaxFieldName = m.substring(1);
-        }
-        else if (Object.values(metafields).includes(m)) {
-            relaxFieldName = null;
-        }
-        else {
-            relaxFieldName = m.startsWith('$') ? `$${m}` : m;
-        }
+function mongoDotSyntaxPathComponentToRelax(c, depth) {
+    return Object.values(metafields).includes(c) ? null
+            : (depth === 0 && c === '_id') ? 'id'
+            : decodeURIComponent(c);
+}
 
-        return relaxFieldName;
-    },
-    relaxToMongo(r) {
-        let mongoFieldName;
-        if (aliases[r]) {
-            mongoFieldName = aliases[r];
-        }
-        else if (r.startsWith('_')) {
-            mongoFieldName = `_${r}`;
-        }
-        else if (r.startsWith('$') && !r.startsWith('$$')) {
-            mongoFieldName = metafields[r.substring(1)];
+function relaxDocKeyComponentToMongo(c, depth) {
+    return (depth === 0 && c === 'id')
+            ? '_id'
+            : encodeURIComponent(c).replace(/_/g, '%5f');
+}
 
-            if (!mongoFieldName) {
-                throw new Error('No such metafield: ' + r);
-            }
-        }
-        else {
-            mongoFieldName = r.startsWith('$$') ? r.substring(1) : r;
-        }
+function relaxFieldSpecifierComponentToMongo(c, depth) {
+    let result;
 
-        return mongoFieldName;
+    if (c.startsWith('$') && !c.startsWith('$$')) {
+        result = metafields[c.substring(1)];
+
+        if (!result) {
+            throw new Error('No such metafield: ' + c);
+        }
+        else if (depth !== 0) {
+            throw new Error('Metafield ' + c + ' invalid except at the '
+                    + 'top level.');
+        }
     }
+    else {
+        result = relaxDocKeyComponentToMongo(c, depth);
+    }
+
+    return result;
+}
+
+function relaxFieldSpecifierToMongo(r) {
+    return (r.startsWith('/') ? jsonPointer.parse(r) : r.split('.'))
+            .map(relaxFieldSpecifierComponentToMongo)
+            .join('.');
+}
+
+module.exports = {
+    mongoDotSyntaxPathComponentToRelax,
+    relaxDocKeyComponentToMongo,
+    relaxFieldSpecifierComponentToMongo,
+    relaxFieldSpecifierToMongo
 };

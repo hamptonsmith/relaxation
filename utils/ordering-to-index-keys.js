@@ -25,7 +25,8 @@ module.exports = ordering => {
                     + `as a direction. Got: ${util.inspect(direction)}`);
         }
 
-        accum[fieldNames.relaxToMongo(rawKey)] = direction;
+        accum[fieldNames.relaxFieldSpecifierToMongo(rawKey)] = direction;
+        
         return accum;
     }, {});
 
