@@ -21,9 +21,9 @@ module.exports = (router, relax) => router.post('/', bodyParser(),
     relax.validate(ctx.request.body);
 
     const { document }  = await relax.collection.insertOneRecord(
-            toMongoDoc(ctx.request.body));
+            toMongoDoc(ctx.request.body, relax.toDb));
 
     ctx.set('ETag', `"${document.version_sboe}"`);
     ctx.status = 200;
-    ctx.body = fromMongoDoc(document);
+    ctx.body = fromMongoDoc(document, relax.fromDb);
 });

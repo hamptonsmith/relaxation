@@ -1,15 +1,17 @@
 'use strict';
 
+const baseX = require('base-x');
 const bodyparser = require('koa-bodyparser');
 const deepEqual = require('deep-equal');
 const clone = require('clone');
+const crypto = require('crypto');
 const errors = require('./errors');
 const fieldNameUtils = require('./utils/field-name-utils');
 const http = require('http');
 const jsonPatch = require('fast-json-patch');
 const Koa = require('koa');
 const lodash = require('lodash');
-const objectId = require("bson-objectid");
+const objectId = require('bson-objectid');
 const OptEntCollection = require('@shieldsbetter/sb-optimistic-entities')
 const orderingToIndexKeys = require('./utils/ordering-to-index-keys');
 const parseIfMatch = require('@shieldsbetter/parse-if-match');
@@ -17,10 +19,13 @@ const Router = require('@koa/router');
 const SbError = require('@shieldsbetter/sberror2');
 const typeIs = require('type-is');
 
+const idAlphabet = 'abcdefghjkmnpqrstuvwxyz23456789';
+const idEncoder = baseX(idAlphabet);
+
 class Relaxation {
     constructor(collection, validate, {
         fromDb = (x => x),
-        generateId,
+        generateId = (() => idEncoder.encode(crypto.randomBytes(16))),
         log = console.log,
         nower,
         onUnexpectedError = (() => {}),
@@ -34,7 +39,7 @@ class Relaxation {
         this.log = log;
         this.onUnexpectedError = onUnexpectedError;
         this.orderings = orderings;
-        this.parseUrlId = parseUrlId || (x => objectId(x));
+        this.parseUrlId = parseUrlId || (x => x);
         this.toDb = toDb;
         this.validate = validate;
     }

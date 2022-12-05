@@ -3,7 +3,7 @@
 const errors = require('../errors');
 const util = require('util');
 
-const { fromMongoDoc, toMongoDoc } = require('../utils/mongo-doc-utils');
+const { fromMongoDoc } = require('../utils/mongo-doc-utils');
 const { strongCompare, weakCompare } =
         require('../utils/etag-comparison-utils');
 
@@ -31,5 +31,5 @@ module.exports = (router, relax) => router.get('/:id', async (ctx, next) => {
 
     ctx.set('etag', JSON.stringify(document.version_sboe));
     ctx.status = 200;
-    ctx.body = fromMongoDoc(document);
+    ctx.body = fromMongoDoc(document, relax.fromDb);
 });

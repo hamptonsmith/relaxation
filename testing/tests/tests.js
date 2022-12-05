@@ -769,7 +769,8 @@ test('filter by $eTag', cleanAxiosErrors(async t => {
 test('filter by id', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {}, {
         constructorOpts: {
-            parseUrlId: x => x
+            parseUrlId: x => x,
+            toDb: x => x
         }
     });
 
@@ -796,7 +797,8 @@ test('get - not found', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {}, {
         constructorOpts: {
             generateId: () => 'abc',
-            parseUrlId: x => x
+            parseUrlId: x => x,
+            toDb: x => x
         }
     });
 
@@ -1281,7 +1283,8 @@ test('basic put and get', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {}, {
         constructorOpts: {
             generateId: () => 'abc',
-            parseUrlId: x => x
+            parseUrlId: x => x,
+            toDb: x => x
         }
     });
 
@@ -1554,7 +1557,8 @@ test('put - if-none-match star + nothing -> 200', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {}, {
         constructorOpts: {
             generateId: () => 'abc',
-            parseUrlId: x => x
+            parseUrlId: x => x,
+            toDb: x => x
         }
     });
 
@@ -1765,6 +1769,176 @@ test('delete - if-none-match star 412', cleanAxiosErrors(async t => {
     }));
 
     t.is(error.response.status, 412);
+}));
+
+// 1) Are fromDb and toDb firing and doing their jobs?
+// 2) ...does that include auto toJSON()?
+// 3)
+
+test('fromDb + toDb', cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            fromDb: db => ({
+                ...db,
+                someDate1: db.someDate1.valueOf(),
+                // We leave someDate2 to be coerced automatically by toJSON(),
+                // which should result in an ISO 8601 string alongside
+                // someDate1's unix timestamp (both acceptable to new Date(x)
+                // in toDb() below).
+            }),
+            toDb: ent => ({
+                ...ent,
+
+                someDate1: new Date(ent.someDate1),
+                someDate2: new Date(ent.someDate2)
+            }),
+            orderings: {
+                test: {
+                    fields: [
+                        { $updatedAt: 1 }
+                    ],
+                    filters: {
+                        type: {
+                            operators: {
+                                eq: {
+                                    toMongo: v => {
+                                        const [field, type] = v.split('=');
+                                        return { [field]: { $type: type } };
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    const { data: postData } = await r.post('/', {
+        someDate1: '2020-01-01T12:00:00Z',
+        someDate2: '2020-01-02T12:00:00Z',
+    });
+
+    t.deepEqual(postData, {
+        id: postData.id,
+        someDate1: 1577880000000,
+        someDate2: '2020-01-02T12:00:00.000Z'
+    });
+
+    const { data: listData1, status: listStatus1 } =
+            await r.get('/', {
+                params: {
+                    filter: `type=${encodeURIComponent('someDate1=date')}`,
+                    order: 'test'
+                }
+            });
+
+    t.deepEqual(listData1, [{
+        id: postData.id,
+        someDate1: 1577880000000,
+        someDate2: '2020-01-02T12:00:00.000Z'
+    }]);
+
+    const { data: listData2, status: listStatus2 } =
+            await r.get('/', {
+                params: {
+                    filter: `type=${encodeURIComponent('someDate2=date')}`,
+                    order: 'test'
+                }
+            });
+
+    t.deepEqual(listData2, [{
+        id: postData.id,
+        someDate1: 1577880000000,
+        someDate2: '2020-01-02T12:00:00.000Z'
+    }]);
+
+    const { data: patchData, status: patchStatus } =
+            await r.patch(`/${postData.id}`, [
+                { op: 'copy', from: '/someDate1', path: '/someDate3' },
+                { op: 'copy', from: '/someDate2', path: '/someDate4' }
+            ], {
+                headers: {
+                    'Content-Type': 'application/json-patch+json'
+                }
+            });
+
+    t.is(patchStatus, 200);
+    t.deepEqual(patchData, {
+        id: postData.id,
+        someDate1: 1577880000000,
+        someDate2: '2020-01-02T12:00:00.000Z',
+        someDate3: 1577880000000,
+        someDate4: '2020-01-02T12:00:00.000Z',
+    });
+
+    const { data: listData3, status: listStatus3 } =
+            await r.get('/', {
+                params: {
+                    filter: `type=${encodeURIComponent('someDate1=date')}`,
+                    order: 'test'
+                }
+            });
+
+    t.is(patchStatus, 200);
+    t.deepEqual(listData3, [{
+        id: postData.id,
+        someDate1: 1577880000000,
+        someDate2: '2020-01-02T12:00:00.000Z',
+        someDate3: 1577880000000,
+        someDate4: '2020-01-02T12:00:00.000Z',
+    }]);
+
+    const { data: listData4, status: listStatus4 } =
+            await r.get('/', {
+                params: {
+                    filter: `type=${encodeURIComponent('someDate2=date')}`,
+                    order: 'test'
+                }
+            });
+
+    t.is(listStatus4, 200);
+    t.deepEqual(listData4, [{
+        id: postData.id,
+        someDate1: 1577880000000,
+        someDate2: '2020-01-02T12:00:00.000Z',
+        someDate3: 1577880000000,
+        someDate4: '2020-01-02T12:00:00.000Z',
+    }]);
+
+    const { data: listData5, status: listStatus5 } =
+            await r.get('/', {
+                params: {
+                    filter: `type=${encodeURIComponent('someDate3=double')}`,
+                    order: 'test'
+                }
+            });
+
+    t.is(listStatus5, 200);
+    t.deepEqual(listData5, [{
+        id: postData.id,
+        someDate1: 1577880000000,
+        someDate2: '2020-01-02T12:00:00.000Z',
+        someDate3: 1577880000000,
+        someDate4: '2020-01-02T12:00:00.000Z',
+    }]);
+
+    const { data: listData6, status: listStatus6 } =
+            await r.get('/', {
+                params: {
+                    filter: `type=${encodeURIComponent('someDate4=string')}`,
+                    order: 'test'
+                }
+            });
+
+    t.is(listStatus6, 200);
+    t.deepEqual(listData6, [{
+        id: postData.id,
+        someDate1: 1577880000000,
+        someDate2: '2020-01-02T12:00:00.000Z',
+        someDate3: 1577880000000,
+        someDate4: '2020-01-02T12:00:00.000Z',
+    }]);
 }));
 
 function cleanAxiosErrors(fn) {

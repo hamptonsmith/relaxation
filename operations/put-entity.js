@@ -41,10 +41,10 @@ module.exports = (router, relax) => router.put('/:id', bodyParser(),
                             `If-None-Match ${ctx.get('If-None-Match')}`);
                 }
 
-                return toMongoDoc(ctx.request.body);
+                return toMongoDoc(ctx.request.body, relax.toDb);
             },
             { upsert: true });
 
     ctx.status = 200;
-    ctx.body = fromMongoDoc(document);
+    ctx.body = fromMongoDoc(document, relax.fromDb);
 });

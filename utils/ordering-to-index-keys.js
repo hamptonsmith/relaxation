@@ -2,8 +2,6 @@
 
 const fieldNames = require('./field-name-utils');
 
-const { toMongoDoc } = require('./mongo-doc-utils');
-
 const orderingMetafields = {
     createdAt: 'createdAt_sboe',
     eTag: 'version_sboe',
@@ -26,7 +24,7 @@ module.exports = ordering => {
         }
 
         accum[fieldNames.relaxFieldSpecifierToMongo(rawKey)] = direction;
-        
+
         return accum;
     }, {});
 

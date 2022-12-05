@@ -4,6 +4,7 @@ const assert = require('assert');
 const bs58 = require('bs58');
 const errors = require('../errors');
 const fieldNames = require('../utils/field-name-utils');
+const isMongoObjectId = require('../utils/is-mongo-object-id');
 const jsonPointer = require('json-pointer');
 const LinkHeader = require('http-link-header');
 const lodash = require('lodash');
@@ -71,17 +72,15 @@ module.exports = (router, relax) => router.get('/', async (ctx, next) => {
     }
 
     ctx.status = 200;
-    ctx.body = pagePlusOne.slice(0, first).map(d => fromMongoDoc(d));
+    ctx.body = pagePlusOne.slice(0, first)
+            .map(d => fromMongoDoc(d, relax.fromDb));
 });
 
 function valueToCursorElement(v) {
     if (v instanceof Date) {
         v = { date: +v };
     }
-
-    // MongoDB uses "ObjectId", but bson-objectid uses "ObjectID". :shrug:
-    else if ((v?.__proto__?.constructor?.name || '')
-            .toLowerCase() === 'objectid') {
+    else if (isMongoObjectId(v)) {
         v = { oid: '' + v };
     }
 

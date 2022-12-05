@@ -38,12 +38,12 @@ module.exports = (router, relax) => router.patch('/:id',
                                 `If-None-Match ${ctx.get('If-None-Match')}`);
                     }
 
-                    const newDoc = fromMongoDoc(document);
-                    jsonPatch.applyPatch(newDoc, ctx.request.body);
+                    const newDoc = fromMongoDoc(document, relax.fromDb);
 
+                    jsonPatch.applyPatch(newDoc, ctx.request.body);
                     relax.validate(newDoc);
 
-                    return toMongoDoc(newDoc);
+                    return toMongoDoc(newDoc, relax.toDb);
                 }));
     }
     catch (e) {
@@ -55,5 +55,5 @@ module.exports = (router, relax) => router.patch('/:id',
     }
 
     ctx.status = 200;
-    ctx.body = fromMongoDoc(document);
+    ctx.body = fromMongoDoc(document, relax.fromDb);
 });
