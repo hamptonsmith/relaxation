@@ -1,7 +1,10 @@
 'use strict';
 
+const clone = require('clone');
 const fieldNameUtils = require('./field-name-utils');
 const isMongoObjectId = require('./is-mongo-object-id');
+const jsonPointer = require('json-pointer');
+const lodash = require('lodash');
 
 // In Mongo:
 //
@@ -49,13 +52,55 @@ const isMongoObjectId = require('./is-mongo-object-id');
 //     '$bazz_waldo': '<ISO 8601>'
 // }
 
+// mongo doc -> mongoToRelax -> fromDb -> jsonify -> project
+
+function project(doc, ent, fields) {
+    if (!fields) {
+        fields = '.';  // Root doc.
+    }
+
+    if (!Array.isArray(fields)) {
+        fields = [fields];
+    }
+
+    const mappings = fields.map(e => e.split(',')).flat().map(rawProjection => {
+        let [from, to] = rawProjection.split(':');
+
+        const fromResult =
+                fieldNameUtils.splitRelaxFieldSpecifierComponents(from);
+
+        const toResult = to === undefined
+                ? fromResult.map(
+                        el => el.startsWith('$$') ? el.substring(1) : el)
+                : fieldNameUtils.splitRelaxFieldSpecifierComponents(to);
+
+        return [ fromResult, toResult ];
+    });
+
+    mappings.sort(([,to1], [,to2]) => to1.length - to2.length);
+
+    const result = {};
+    for (const [from, to] of mappings) {
+        const value = clone(fieldNameUtils.getByRelaxSpecifier(doc, ent, from));
+        if (to.length === 0) {
+            if (typeof value === 'object') {
+                Object.assign(result, value);
+            }
+        }
+        else {
+            lodash.set(result, to, value);
+        }
+    }
+    return result;
+}
+
 function mongoToRecord(doc, depth = 0) {
     let result;
 
+    // An embedded document. Note we can't rely on
+    // `doc.constructor === Object` because `constructor` is a perfectly valid
+    // userspace key.
     if (doc?.__proto__.constructor.name === 'Object') {
-        // An embedded document. Note we can't rely on
-        // `doc.constructor === Object` because `constructor` is a perfectly
-        // valid userspace key.
         result = Object.fromEntries(Object.entries(doc).map(
                 ([key, value]) => [
                     fieldNameUtils.mongoDotSyntaxPathComponentToRelax(
@@ -70,9 +115,10 @@ function mongoToRecord(doc, depth = 0) {
     else if (doc?.__proto__.constructor.name === 'Array') {
         result = doc.map(el => mongoToRecord(el, depth + 1));
     }
+
+    // A primitive, a "special" object like Date or Buffer, or a non-promoted
+    // BSON type like Long.
     else {
-        // A primitive, a "special" object like Date or Buffer, or a
-        // non-promoted BSON type like Long.
         result = doc;
     }
 
@@ -93,7 +139,7 @@ function recordToMongo(rec, depth = 0) {
             result = Object.fromEntries(Object.entries(rec).map(
                     ([key, value]) => [
                         fieldNameUtils.relaxFieldSpecifierComponentToMongo(
-                                key, depth),
+                                key.startsWith('$') ? `$${key}` : key, depth),
                         recordToMongo(value, depth + 1)
                     ]));
         }
@@ -153,6 +199,7 @@ function isMongoy(v) {
 }
 
 module.exports = {
-    fromMongoDoc: (doc, fromDb) => jsonify(fromDb(mongoToRecord(doc))),
+    fromMongoDoc: (doc, fromDb, fieldSpecifiers) =>
+            project(doc, jsonify(fromDb(mongoToRecord(doc))), fieldSpecifiers),
     toMongoDoc : (ent, toDb) => recordToMongo(toDb(ent))
 };

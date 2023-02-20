@@ -1,6 +1,7 @@
 'use strict';
 
 const jsonPointer = require('json-pointer');
+const lodash = require('lodash');
 
 const aliases = {
     id: '_id'
@@ -14,6 +15,24 @@ const metafields = {
     eTag: 'version_sboe',
     updatedAt: 'updatedAt_sboe'
 };
+
+function getByRelaxSpecifier(doc, ent, r) {
+    const path = Array.isArray(r) ? r : splitRelaxFieldSpecifierComponents(r);
+
+    let result;
+    if (path.length === 0) {
+        result = ent;
+    }
+    else if (path.some(c => c.startsWith('$') && !c.startsWith('$$'))) {
+        result = lodash.get(doc, path.map(relaxFieldSpecifierComponentToMongo));
+    }
+    else {
+        result = lodash.get(ent,
+                path.map(c => c.startsWith('$') ? c.substring(1) : c));
+    }
+
+    return result;
+}
 
 function mongoDotSyntaxPathComponentToRelax(c, depth) {
     return Object.values(metafields).includes(c) ? null
@@ -42,21 +61,46 @@ function relaxFieldSpecifierComponentToMongo(c, depth) {
         }
     }
     else {
-        result = relaxDocKeyComponentToMongo(c, depth);
+        result = relaxDocKeyComponentToMongo(
+                c.startsWith('$') ? c.substring(1) : c, depth);
     }
 
     return result;
 }
 
 function relaxFieldSpecifierToMongo(r) {
-    return (r.startsWith('/') ? jsonPointer.parse(r) : r.split('.'))
+    return splitRelaxFieldSpecifierComponents(r)
             .map(relaxFieldSpecifierComponentToMongo)
             .join('.');
 }
 
+function splitRelaxFieldSpecifierComponents(r) {
+    let result;
+    if (r.startsWith('/')) {
+        result = jsonPointer.parse(r);
+    }
+    else {
+        result = r.split('.');
+
+        if (result.length > 1) {
+            if (result[0] === '') {
+                result.shift();
+            }
+
+            if (result[result.length - 1] === '') {
+                result.pop();
+            }
+        }
+    }
+
+    return result;
+}
+
 module.exports = {
+    getByRelaxSpecifier,
     mongoDotSyntaxPathComponentToRelax,
     relaxDocKeyComponentToMongo,
     relaxFieldSpecifierComponentToMongo,
-    relaxFieldSpecifierToMongo
+    relaxFieldSpecifierToMongo,
+    splitRelaxFieldSpecifierComponents
 };

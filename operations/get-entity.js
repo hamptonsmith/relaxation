@@ -31,5 +31,5 @@ module.exports = (router, relax) => router.get('/:id', async (ctx, next) => {
 
     ctx.set('etag', JSON.stringify(document.version_sboe));
     ctx.status = 200;
-    ctx.body = fromMongoDoc(document, relax.fromDb);
+    ctx.body = fromMongoDoc(document, relax.fromDb, ctx.request.query.fields);
 });

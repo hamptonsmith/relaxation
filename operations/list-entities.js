@@ -13,7 +13,7 @@ const orderingToIndexKeys = require('../utils/ordering-to-index-keys');
 const util = require('util');
 const validator = require('validator');
 
-const { fromMongoDoc, toMongoDoc } = require('../utils/mongo-doc-utils');
+const { fromMongoDoc } = require('../utils/mongo-doc-utils');
 const { strongCompare, weakCompare } =
         require('../utils/etag-comparison-utils');
 
@@ -73,7 +73,7 @@ module.exports = (router, relax) => router.get('/', async (ctx, next) => {
 
     ctx.status = 200;
     ctx.body = pagePlusOne.slice(0, first)
-            .map(d => fromMongoDoc(d, relax.fromDb));
+            .map(d => fromMongoDoc(d, relax.fromDb, ctx.request.query.fields));
 });
 
 function valueToCursorElement(v) {

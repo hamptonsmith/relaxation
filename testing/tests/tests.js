@@ -35,6 +35,380 @@ test('basic post and get', cleanAxiosErrors(async t => {
     });
 }));
 
+test('get - select top level field - dot syntax', cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {});
+
+    const { data: postData } = await r.post('/', {
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    const { data: getData, status: getStatus } =
+            await r.get(`/${postData.id}?fields=foo`);
+
+    t.is(getStatus, 200);
+    t.deepEqual(getData, {
+        foo: 'fooval'
+    });
+}));
+
+test('get - select top level field - json ptr syntax',
+        cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {});
+
+    const { data: postData } = await r.post('/', {
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    const { data: getData, status: getStatus } =
+            await r.get(`/${postData.id}?fields=/foo`);
+
+    t.is(getStatus, 200);
+    t.deepEqual(getData, {
+        foo: 'fooval'
+    });
+}));
+
+test('get - select embedded field - dot syntax', cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {});
+
+    const { data: postData } = await r.post('/', {
+        foo: 'fooval',
+        bar: {
+            bazz: 'quuz',
+            plugh: 'waldo'
+        }
+    });
+
+    const { data: getData, status: getStatus } =
+            await r.get(`/${postData.id}?fields=bar.plugh`);
+
+    t.is(getStatus, 200);
+    t.deepEqual(getData, {
+        bar: { plugh: 'waldo' }
+    });
+}));
+
+test('get - select embedded field - json ptr syntax',
+        cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {});
+
+    const { data: postData } = await r.post('/', {
+        foo: 'fooval',
+        bar: {
+            bazz: 'quuz',
+            plugh: 'waldo'
+        }
+    });
+
+    const { data: getData, status: getStatus } =
+            await r.get(`/${postData.id}?fields=/bar/plugh`);
+
+    t.is(getStatus, 200);
+    t.deepEqual(getData, {
+        bar: { plugh: 'waldo' }
+    });
+}));
+
+test('get - select $createdAt, dot syntax', cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            nower: () => 123
+        }
+    });
+
+    const { data: postData } = await r.post('/', {
+        foo: 'fooval',
+        bar: {
+            bazz: 'quuz',
+            plugh: 'waldo'
+        }
+    });
+
+    const { data: getData, status: getStatus } =
+            await r.get(`/${postData.id}?fields=$createdAt`);
+
+    t.is(getStatus, 200);
+    t.deepEqual(getData, {
+        $createdAt: new Date(123).toISOString()
+    });
+}));
+
+test('get - select $createdAt, json ptr syntax', cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            nower: () => 123
+        }
+    });
+
+    const { data: postData } = await r.post('/', {
+        foo: 'fooval',
+        bar: {
+            bazz: 'quuz',
+            plugh: 'waldo'
+        }
+    });
+
+    const { data: getData, status: getStatus } =
+            await r.get(`/${postData.id}?fields=/$createdAt`);
+
+    t.is(getStatus, 200);
+    t.deepEqual(getData, {
+        $createdAt: new Date(123).toISOString()
+    });
+}));
+
+test('get - select $updatedAt', cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            nower: () => 123
+        }
+    });
+
+    const { data: postData } = await r.post('/', {
+        foo: 'fooval',
+        bar: {
+            bazz: 'quuz',
+            plugh: 'waldo'
+        }
+    });
+
+    const { data: getData, status: getStatus } =
+            await r.get(`/${postData.id}?fields=$updatedAt`);
+
+    t.is(getStatus, 200);
+    t.deepEqual(getData, {
+        $updatedAt: new Date(123).toISOString()
+    });
+}));
+
+test('get - select $eTag', cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            nower: () => 123
+        }
+    });
+
+    const { data: postData, headers: postHeaders } = await r.post('/', {
+        foo: 'fooval',
+        bar: {
+            bazz: 'quuz',
+            plugh: 'waldo'
+        }
+    });
+
+    const { data: getData, status: getStatus } =
+            await r.get(`/${postData.id}?fields=$eTag`);
+
+    t.is(getStatus, 200);
+    t.deepEqual(getData, {
+        $eTag: JSON.parse(postHeaders.etag)
+    });
+}));
+
+test('get - select multiple - comma', cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            nower: () => 123
+        }
+    });
+
+    const { data: postData, headers: postHeaders } = await r.post('/', {
+        foo: 'fooval',
+        bar: {
+            bazz: 'quuz',
+            plugh: 'waldo'
+        }
+    });
+
+    const { data: getData, status: getStatus } =
+            await r.get(`/${postData.id}?fields=/bar/plugh,$eTag,foo`);
+
+    t.is(getStatus, 200);
+    t.deepEqual(getData, {
+        $eTag: JSON.parse(postHeaders.etag),
+        bar: {
+            plugh: 'waldo',
+        },
+        foo: 'fooval'
+    });
+}));
+
+test('get - select multiple - repeated', cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            nower: () => 123
+        }
+    });
+
+    const { data: postData, headers: postHeaders } = await r.post('/', {
+        foo: 'fooval',
+        bar: {
+            bazz: 'quuz',
+            plugh: 'waldo'
+        }
+    });
+
+    const { data: getData, status: getStatus } =
+            await r.get(`/${postData.id}?fields=/bar/plugh&fields=$eTag,foo`);
+
+    t.is(getStatus, 200);
+    t.deepEqual(getData, {
+        $eTag: JSON.parse(postHeaders.etag),
+        bar: {
+            plugh: 'waldo',
+        },
+        foo: 'fooval'
+    });
+}));
+
+test('get - select dollar prefix - dot syntax', cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            nower: () => 123
+        }
+    });
+
+    const { data: postData } = await r.post('/', {
+        $createdAt: 'client created at!'
+    });
+
+    const { data: getData, status: getStatus } =
+            await r.get(`/${postData.id}?fields=$$createdAt`);
+
+    t.is(getStatus, 200);
+    t.deepEqual(getData, {
+        $createdAt: 'client created at!'
+    });
+}));
+
+test('get - select dollar prefix - json ptr syntax', cleanAxiosErrors(
+        async t => {
+
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            nower: () => 123
+        }
+    });
+
+    const { data: postData } = await r.post('/', {
+        $createdAt: 'client created at!'
+    });
+
+    const { data: getData, status: getStatus } =
+            await r.get(`/${postData.id}?fields=/$$createdAt`);
+
+    t.is(getStatus, 200);
+    t.deepEqual(getData, {
+        $createdAt: 'client created at!'
+    });
+}));
+
+test('blah', cleanAxiosErrors(
+        async t => {
+
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            nower: () => 123
+        }
+    });
+
+    const { data: postData } = await r.post('/', {
+        $createdAt: 'client created at!',
+        plugh: 'waldo'
+    });
+
+    const { data: getData, status: getStatus } =
+            await r.get(`/${postData.id}?fields=plugh,$$createdAt:/foo/bar`);
+
+    t.is(getStatus, 200);
+    t.deepEqual(getData, {
+        plugh: 'waldo',
+        foo: {
+            bar: 'client created at!'
+        }
+    });
+}));
+
+test('get - select with remap - dot syntax', cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {});
+
+    const { data: postData } = await r.post('/', {
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    const { data: getData, status: getStatus } =
+            await r.get(`/${postData.id}?fields=foo:foo2`);
+
+    t.is(getStatus, 200);
+    t.deepEqual(getData, {
+        foo2: 'fooval'
+    });
+}));
+
+test('get - select with remap - json ptr syntax', cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {});
+
+    const { data: postData } = await r.post('/', {
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    const { data: getData, status: getStatus } =
+            await r.get(`/${postData.id}?fields=/foo:/foo2`);
+
+    t.is(getStatus, 200);
+    t.deepEqual(getData, {
+        foo2: 'fooval'
+    });
+}));
+
+test('get - selectageddon', cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            nower: () => 123
+        }
+    });
+
+    const { data: postData } = await r.post('/', {
+        $createdAt: 'client created at!',
+        foo: 'fooval',
+        bar: {
+            bazz: 'quuz',
+            plugh: 'waldo'
+        }
+    });
+
+    const remap = '.,.:copy,$createdAt:x,$$createdAt:/copy/plugh';
+
+    const { data: getData, status: getStatus } =
+            await r.get(`/${postData.id}?fields=${remap}`);
+
+    t.is(getStatus, 200);
+    t.deepEqual(getData, {
+        id: getData.id,
+        $createdAt: 'client created at!',
+        foo: 'fooval',
+        bar: {
+            bazz: 'quuz',
+            plugh: 'waldo'
+        },
+        copy: {
+            id: getData.id,
+            $createdAt: 'client created at!',
+            foo: 'fooval',
+            bar: {
+                bazz: 'quuz',
+                plugh: 'waldo'
+            },
+            plugh: 'client created at!'
+        },
+        x: new Date(123).toISOString()
+    });
+}));
+
 test('basic list', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 

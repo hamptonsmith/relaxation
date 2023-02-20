@@ -1,0 +1,31 @@
+dnsName: 'relaxation'
+variables: {
+    SUPPORTED_MONGO_VERSIONS: '5.0-focal,4.4-focal,4.2-bionic'
+}
+
+environments: {
+    default: {
+        peltonDependencies: []
+    },
+    test: {
+        buildCommand: '''
+            bash pelton/print-test-image.sh | docker build \
+                    -f - \
+                    -t $PELTON_DOCKER_REGISTRY/relaxation \
+                    . >&2
+            docker push $PELTON_DOCKER_REGISTRY/relaxation >&2
+            docker inspect --format='{{index .RepoDigests 0}}' \
+                    $PELTON_DOCKER_REGISTRY/relaxation:latest
+        ''',
+        printTerminalDependencies: 'cat pelton/test-job.yaml | envsubst',
+        peltonDependencies: [
+            {
+                printProjectDirectory: '''
+                    echo /$(npm explore @shieldsbetter/sb-optimistic-entities pwd)
+                ''',
+                environment: 'test'
+            }
+        ],
+        podSelector: 'test-job=relaxation'
+    }
+}

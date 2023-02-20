@@ -21,7 +21,7 @@ simple JSON. And ADDITIONALLY, at certain points `toJSON()` methods could be
 inductively implied. The result was a mess of things that were creaky, wrong, or
 _very_ wrong, and nearly impossible to communicate to the client.
 
-### Potential Soluations
+### Potential Solutions
 #### Option 1: There is only JSON
 
 A straightforward option would be to just get rid of the idea that anything can

@@ -55,5 +55,6 @@ module.exports = (router, relax) => router.patch('/:id',
     }
 
     ctx.status = 200;
-    ctx.body = fromMongoDoc(document, relax.fromDb);
+    ctx.body = fromMongoDoc(document, relax.fromDb,
+            ctx.request.headers['response-fields-mapping']);
 });

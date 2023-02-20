@@ -1,5 +1,5 @@
 Vagrant.configure("2") do |config|
-  config.vm.box = "bento/ubuntu-22.04"
+  config.vm.box = "shieldsbetter/pelton22"
 
   config.vm.synced_folder "vagrant/bin/", "/host/bin",
         mount_options: ["dmode=775,fmode=777"]
@@ -10,7 +10,5 @@ Vagrant.configure("2") do |config|
 
   config.ssh.forward_agent = true
 
-  config.vm.provision "shell",
-            path: "https://raw.githubusercontent.com/hamptonsmith/pelton2/main/provision-vagrant.sh"
-    config.vm.provision "shell", path: "./vagrant/provision.sh"
+  config.vm.provision "shell", path: "./vagrant/provision.sh"
 end

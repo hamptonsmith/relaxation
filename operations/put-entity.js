@@ -46,5 +46,6 @@ module.exports = (router, relax) => router.put('/:id', bodyParser(),
             { upsert: true });
 
     ctx.status = 200;
-    ctx.body = fromMongoDoc(document, relax.fromDb);
+    ctx.body = fromMongoDoc(document, relax.fromDb,
+            ctx.request.headers['response-fields-mapping']);
 });
