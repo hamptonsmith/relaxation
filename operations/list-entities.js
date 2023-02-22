@@ -32,8 +32,16 @@ const orderDirections = { '1': '$gt', '-1': '$lt' };
 module.exports = (router, relax) => router.get('/', async (ctx, next) => {
     const parsedId = relax.parseUrlId(ctx.params.id);
 
-    const ordering = relax.orderings[ctx.request.query.order || 'created'];
-    const indexKeys = orderingToIndexKeys(ordering.fields);
+    const requestedOrder = ctx.request.query.order || 'created';
+    const referenceOrder = requestedOrder.endsWith('-reverse')
+            ? requestedOrder.substring(
+                    0, requestedOrder.length - '-reverse'.length)
+            : requestedOrder;
+
+    const ordering = relax.orderings[referenceOrder];
+
+    const indexKeys = orderingToIndexKeys(
+            ordering.fields, requestedOrder.endsWith('-reverse'));
     const indexKeysEntries = Object.entries(indexKeys);
 
     const after = parseAfter(ctx.request.query.after, indexKeys)

@@ -547,6 +547,44 @@ test('list multiple pages with specified order', cleanAxiosErrors(async t => {
     ]);
 }));
 
+test('list multiple pages with specified order reversed',
+        cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            orderings: {
+                byName: {
+                    fields: [
+                        { name: 1 }
+                    ]
+                }
+            }
+        }
+    });
+
+    await r.post('/', { name: 'thing 5' });
+    await r.post('/', { name: 'thing 7' });
+    await r.post('/', { name: 'thing 3' });
+    await r.post('/', { name: 'thing 8' });
+    await r.post('/', { name: 'thing 2' });
+    await r.post('/', { name: 'thing 6' });
+    await r.post('/', { name: 'thing 4' });
+    await r.post('/', { name: 'thing 1' });
+    await r.post('/', { name: 'thing 9' });
+    await r.post('/', { name: 'thing 0' });
+
+    // Give the index a sec to catch up.
+    await sleep();
+
+    const { data: listData, headers, status: listStatus } =
+            await r.get('/', { params: { order: 'byName-reverse' } });
+
+    t.is(listStatus, 200);
+    t.deepEqual(listData.map(({ name }) => name), [
+        'thing 9', 'thing 8', 'thing 7', 'thing 6', 'thing 5', 'thing 4',
+        'thing 3', 'thing 2', 'thing 1', 'thing 0'
+    ]);
+}));
+
 test('default filter <', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {}, {
         constructorOpts: {

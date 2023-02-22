@@ -2,14 +2,7 @@
 
 const fieldNames = require('./field-name-utils');
 
-const orderingMetafields = {
-    createdAt: 'createdAt_sboe',
-    eTag: 'version_sboe',
-    id: '_id',
-    updatedAt: 'updatedAt_sboe'
-};
-
-module.exports = ordering => {
+module.exports = (ordering, reverse) => {
     const result = ordering.reduce((accum = {}, relaxKeyEntry) => {
         if (Object.keys(relaxKeyEntry).length !== 1) {
             throw new Error('fields entry must contain exactly one key.'
@@ -23,14 +16,15 @@ module.exports = ordering => {
                     + `as a direction. Got: ${util.inspect(direction)}`);
         }
 
-        accum[fieldNames.relaxFieldSpecifierToMongo(rawKey)] = direction;
+        accum[fieldNames.relaxFieldSpecifierToMongo(rawKey)] =
+                direction * (reverse ? -1 : 1);
 
         return accum;
     }, {});
 
     // Always the final tie-breaker.
     if (!('_id' in result)) {
-        result._id = 1;
+        result._id = (reverse ? -1 : 1);
     }
 
     return result;
