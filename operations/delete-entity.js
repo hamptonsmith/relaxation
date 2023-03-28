@@ -2,15 +2,17 @@
 
 const bodyParser = require('koa-bodyparser');
 const errors = require('../errors');
+const parseId = require('../utils/parse-id');
 
+const { doBeforeMutate } = require('../utils/hook-middleware');
 const { strongCompare, weakCompare } =
         require('../utils/etag-comparison-utils');
 
-module.exports = (router, relax) => router.delete('/:id', async (ctx, next) => {
-    const parsedId = relax.parseUrlId(ctx.params.id);
+module.exports = (router, relax) => router.delete(`/:${relax.idPlaceholder}`,
+        parseId, doBeforeMutate, async (ctx, next) => {
 
     await relax.collection.deleteOneRecord(
-            { _id: parsedId },
+            { _id: ctx.state.parsedId },
             {
                 confirmDelete: (doc) => {
                     if (ctx.request.ifMatch && !ctx.request.ifMatch.some(

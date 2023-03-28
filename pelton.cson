@@ -26,6 +26,6 @@ environments: {
                 environment: 'test'
             }
         ],
-        podSelector: 'test-job=relaxation'
+        podSelector: 'test-job=relaxation-${PELTON_RUN}'
     }
 }

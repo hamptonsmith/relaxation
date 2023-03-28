@@ -1,20 +1,22 @@
 'use strict';
 
 const errors = require('../errors');
+const parseId = require('../utils/parse-id');
 const util = require('util');
 
 const { fromMongoDoc } = require('../utils/mongo-doc-utils');
 const { strongCompare, weakCompare } =
         require('../utils/etag-comparison-utils');
 
-module.exports = (router, relax) => router.get('/:id', async (ctx, next) => {
-    const parsedId = relax.parseUrlId(ctx.params.id);
+module.exports = (router, relax) => router.get(`/:${relax.idPlaceholder}`,
+        parseId, async (ctx, next) => {
 
-    const document = await relax.collection.findOne({ _id: parsedId });
+    const document =
+            await relax.collection.findOne({ _id: ctx.state.parsedId });
 
     if (!document) {
-        throw errors.noSuchEntity(
-                `id ${util.inspect(parsedId)}`, { requestedId: parsedId });
+        throw errors.noSuchResource(
+                ctx.request.path, { requestedId: ctx.state.parsedId });
     }
 
     if (ctx.request.ifMatch &&

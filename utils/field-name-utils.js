@@ -1,5 +1,6 @@
 'use strict';
 
+const errors = require('../errors');
 const jsonPointer = require('json-pointer');
 const lodash = require('lodash');
 
@@ -53,11 +54,11 @@ function relaxFieldSpecifierComponentToMongo(c, depth) {
         result = metafields[c.substring(1)];
 
         if (!result) {
-            throw new Error('No such metafield: ' + c);
+            throw errors.invalidRequest('No such metafield: ' + c);
         }
         else if (depth !== 0) {
-            throw new Error('Metafield ' + c + ' invalid except at the '
-                    + 'top level.');
+            throw errors.invalidRequest('Metafield ' + c
+                    + ' invalid except at the ' + 'top level.');
         }
     }
     else {

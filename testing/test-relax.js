@@ -7,7 +7,7 @@ const http = require('http');
 const { MongoClient } = require('mongodb');
 
 module.exports = async (
-    t, validate, { constructorOpts = {}, listenOpts = {} } = {}
+    t, validate, { constructorOpts = {} } = {}
 ) => {
     constructorOpts = {
         log: t.log.bind(t),
@@ -32,7 +32,7 @@ module.exports = async (
 
     const { relaxation } =
             await buildRelaxation(collection, validate, constructorOpts);
-    const httpServer = await relaxation.listen(listenOpts);
+    const httpServer = await relaxation.listen(0);
 
     const port = httpServer.address().port;
 
@@ -47,9 +47,13 @@ module.exports = async (
             }))
             .then(() => collection.drop()));
 
-    return axios.create({
+    const result = axios.create({
         baseURL: 'http://localhost:' + port
     });
+
+    result.relaxation = relaxation;
+
+    return result;
 };
 
 function buildTestId() {

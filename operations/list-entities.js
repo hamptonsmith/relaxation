@@ -30,8 +30,6 @@ const filterOps = {
 const orderDirections = { '1': '$gt', '-1': '$lt' };
 
 module.exports = (router, relax) => router.get('/', async (ctx, next) => {
-    const parsedId = relax.parseUrlId(ctx.params.id);
-
     const requestedOrder = ctx.request.query.order || 'created';
     const referenceOrder = requestedOrder.endsWith('-reverse')
             ? requestedOrder.substring(

@@ -1,6 +1,6 @@
 {
   "name": "@shieldsbetter/relaxation",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -24,7 +24,9 @@
     "koa": "^2.13.4",
     "koa-bodyparser": "^4.3.0",
     "lodash": "^4.17.21",
+    "node-match-path": "^0.6.3",
     "npm": "^8.19.2",
+    "path-to-regexp": "^6.2.1",
     "type-is": "^1.6.18",
     "validator": "^13.7.0"
   },

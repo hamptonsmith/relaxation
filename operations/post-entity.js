@@ -3,10 +3,12 @@
 const bodyParser = require('koa-bodyparser');
 const errors = require('../errors');
 
+const { doBeforeMutate } = require('../utils/hook-middleware');
 const { fromMongoDoc, toMongoDoc } = require('../utils/mongo-doc-utils');
 
 module.exports = (router, relax) => router.post('/', bodyParser(),
-        async (ctx, next) => {
+        doBeforeMutate, async (ctx, next) => {
+
     if ('id' in ctx.request.body) {
         throw new errors.InvalidRequest({
             reason: `may not POST entity with an id: ${ctx.request.body.id}`
@@ -18,7 +20,9 @@ module.exports = (router, relax) => router.post('/', bodyParser(),
         ctx.request.body.id = id;
     }
 
-    relax.validate(ctx.request.body);
+    relax.validate(ctx.request.body, {
+        ValidationError: errors.ValidationError
+    });
 
     const { document }  = await relax.collection.insertOneRecord(
             toMongoDoc(ctx.request.body, relax.toDb));

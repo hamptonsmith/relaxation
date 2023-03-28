@@ -7,7 +7,7 @@ spec:
   template:
     metadata:
       labels:
-        test-job: relaxation
+        test-job: relaxation-${PELTON_RUN}
     spec:
       restartPolicy: Never
       containers:

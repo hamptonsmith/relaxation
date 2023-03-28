@@ -2183,10 +2183,6 @@ test('delete - if-none-match star 412', cleanAxiosErrors(async t => {
     t.is(error.response.status, 412);
 }));
 
-// 1) Are fromDb and toDb firing and doing their jobs?
-// 2) ...does that include auto toJSON()?
-// 3)
-
 test('fromDb + toDb', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {}, {
         constructorOpts: {
@@ -2351,6 +2347,65 @@ test('fromDb + toDb', cleanAxiosErrors(async t => {
         someDate3: 1577880000000,
         someDate4: '2020-01-02T12:00:00.000Z',
     }]);
+}));
+
+test('beforeMutate can stop PATCH', cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            beforeMutate: (method, id, req, { AuthorizationError }) => {
+                throw new AuthorizationError();
+            }
+        }
+    });
+
+    const error = await t.throwsAsync(() => r.patch('/foo', [
+        { op: 'replace', path: '/bar', value: 'bazz' }
+    ]).then(({ data }) => data));   // .then() for cleaner output if this fails
+
+    t.is(error.response.status, 403);
+
+    const { data: listData } = await r.get('/');
+    t.deepEqual(listData.length, 0);
+}));
+
+test('beforeMutate can stop POST', cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            beforeMutate: (method, id, req, { AuthorizationError }) => {
+                throw new AuthorizationError();
+            }
+        }
+    });
+
+    const error = await t.throwsAsync(() => r.post('/', {
+        foo: 'fooval',
+        bar: 'barval'
+    }).then(({ data }) => data));   // .then() for cleaner output if this fails
+
+    t.is(error.response.status, 403);
+
+    const { data: listData } = await r.get('/');
+    t.deepEqual(listData.length, 0);
+}));
+
+test('beforeMutate can stop PUT', cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            beforeMutate: (method, id, req, { AuthorizationError }) => {
+                throw new AuthorizationError();
+            }
+        }
+    });
+
+    const error = await t.throwsAsync(() => r.put('/foo', {
+        foo: 'fooval',
+        bar: 'barval'
+    }).then(({ data }) => data));   // .then() for cleaner output if this fails
+
+    t.is(error.response.status, 403);
+
+    const { data: listData } = await r.get('/');
+    t.deepEqual(listData.length, 0);
 }));
 
 function cleanAxiosErrors(fn) {

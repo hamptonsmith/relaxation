@@ -3,28 +3,31 @@
 const bodyParser = require('koa-bodyparser');
 const deepEqual = require('deep-equal');
 const errors = require('../errors');
+const parseId = require('../utils/parse-id');
 
+const { doBeforeMutate } = require('../utils/hook-middleware');
 const { fromMongoDoc, toMongoDoc } = require('../utils/mongo-doc-utils');
 const { strongCompare, weakCompare } =
         require('../utils/etag-comparison-utils');
 
-module.exports = (router, relax) => router.put('/:id', bodyParser(),
-        async (ctx, next) => {
-    const parsedId = relax.parseUrlId(ctx.params.id);
+module.exports = (router, relax) => router.put(`/:${relax.idPlaceholder}`,
+        parseId, doBeforeMutate, bodyParser(), async (ctx, next) => {
 
     if ('id' in ctx.request.body
-            && !deepEqual(ctx.request.body.id, parsedId)) {
+            && !deepEqual(ctx.request.body.id, ctx.state.parsedId)) {
         throw new errors.InvalidRequest({
             reason: `id in body of PUT must be omitted or match id in `
-                    + ` path. Path id: ${JSON.stringify(parsedId)}, body `
-                    + ` id: ${ctx.request.body.id}`
+                    + `path. Path id: ${JSON.stringify(ctx.state.parsedId)}, `
+                    + `body id: ${ctx.request.body.id}`
         });
     }
 
-    relax.validate(ctx.request.body);
+    relax.validate(ctx.request.body, {
+        ValidationError: errors.ValidationError
+    });
 
     const { document } = await relax.collection.updateOneRecord(
-            { _id: parsedId },
+            { _id: ctx.state.parsedId },
             document => {
                 if (ctx.request.ifMatch &&
                         !ctx.request.ifMatch.some(

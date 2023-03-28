@@ -11,10 +11,12 @@ const http = require('http');
 const jsonPatch = require('fast-json-patch');
 const Koa = require('koa');
 const lodash = require('lodash');
+const nodeMatchPath = require('node-match-path');
 const objectId = require('bson-objectid');
 const OptEntCollection = require('@shieldsbetter/sb-optimistic-entities')
 const orderingToIndexKeys = require('./utils/ordering-to-index-keys');
 const parseIfMatch = require('@shieldsbetter/parse-if-match');
+const pathToRegexp = require('path-to-regexp');
 const Router = require('@koa/router');
 const SbError = require('@shieldsbetter/sberror2');
 const typeIs = require('type-is');
@@ -23,25 +25,47 @@ const idAlphabet = 'abcdefghjkmnpqrstuvwxyz23456789';
 const idEncoder = baseX(idAlphabet);
 
 class Relaxation {
-    constructor(collection, validate, {
-        fromDb = (x => x),
-        generateId = (() => idEncoder.encode(crypto.randomBytes(16))),
-        log = console.log,
-        nower,
-        onUnexpectedError = (() => {}),
-        orderings,
-        parseUrlId,
-        toDb = (x => x)
-    } = {}) {
-        this.collection = new OptEntCollection(collection, { nower });
-        this.fromDb = fromDb;
-        this.generateId = generateId || (() => undefined);
-        this.log = log;
-        this.onUnexpectedError = onUnexpectedError;
-        this.orderings = orderings;
-        this.parseUrlId = parseUrlId || (x => x);
-        this.toDb = toDb;
+    constructor(collection, validate, opts) {
+        Object.assign(this, {
+            beforeMutate: (() => {}),
+            fromDb: (x => x),
+            generateId: (() => idEncoder.encode(crypto.randomBytes(16))),
+            log: console.log.bind(console),
+            nower: Date.now,
+            onUnexpectedError: defaultUnexpectedErrorHandler,
+            orderings: {},
+            parseUrlId: (x => x),
+            populateBlankResource: (x => x),
+            resourceKindName: 'resource',
+            prefix: '',
+            toDb: (x => x),
+
+            ...opts
+        });
+
+        this.collection =
+                new OptEntCollection(collection, { nower: this.nower });
         this.validate = validate;
+
+        if (this.prefix !== '' && !this.prefix.startsWith('/')) {
+            throw new Error('Prefix must be empty or start with a slash. Got: '
+                    + this.prefix);
+        }
+
+        if (this.prefix.endsWith('/')) {
+            throw new Error(
+                    'Prefix must not end with a slash. Got: ' + this.prefix);
+        }
+
+        const placeholderNames = pathToRegexp.parse(this.prefix)
+                .map(({ name }) => name)
+                .filter(name => !!name);
+        let i = 0;
+        while (placeholderNames.includes(`id${i}`)) {
+            i++;
+        }
+
+        this.idPlaceholder = `id${i}`;
     }
 
     buildRequestListener() {
@@ -57,45 +81,83 @@ class Relaxation {
                         parseIfMatch(ctx.get('If-None-Match'));
             }
 
+            ctx.request.id = idEncoder.encode(crypto.randomBytes(8));
+            ctx.state.relax = this;
+
             try {
                 await next();
             }
             catch (e) {
-                if (e instanceof errors.PreconditionFailed) {
-                    ctx.status = 412;
-                    ctx.body = 'Precondition failed.';
+                ctx.body = {
+                    message: e.message,
+                    requestId: ctx.request.id
+                };
+
+                if (e instanceof errors.InvalidRequest) {
+                    ctx.status = 400;
+                    ctx.body.code = 'BAD_REQUEST';
                 }
-                else if (e instanceof errors.NoSuchEntity) {
+                else if (e instanceof errors.NoSuchResource) {
                     ctx.status = 404;
-                    ctx.body = 'Not found.';
+                    ctx.body.code = 'NOT_FOUND';
                 }
                 else if (e instanceof errors.NotModified) {
                     ctx.status = 304;
-                    ctx.body = 'Not modified.';
                     ctx.set('etag', e.details.eTag);
                 }
-                else {
-                    ctx.status = 500;
-                    ctx.body = 'Internal server error.';
+                else if (e instanceof errors.PreconditionFailed) {
+                    ctx.status = 412;
+                    ctx.body.code = 'PRECONDITION_FAILED';
+                }
+                else if (e instanceof errors.UnsupportedContentType) {
+                    ctx.status = 415;
+                    ctx.body.code = 'UNSUPPORTED_CONTENT_TYPE';
+                }
+                else if (e instanceof errors.RelaxationClientError) {
+                    ctx.status = e.status;
+                    ctx.body.code = e.code;
 
-                    await this.onUnexpectedError(e, ctx);
+                    if (e.details) {
+                        ctx.body.details = e.details;
+                    }
+                }
+                else {
+                    if (!(e instanceof errors.ValidationError)) {
+                        try {
+                            await this.onUnexpectedError(
+                                    e, ctx.request.id, ctx.req, this.log);
+                        }
+                        catch (e2) {
+                            e = e2;
+                        }
+                    }
+
+                    if (e instanceof errors.ValidationError) {
+                        ctx.status = 400;
+                        ctx.body.code = 'VALIDATION_ERROR';
+                        ctx.body.details = e.details;
+                    }
+                    else {
+                        ctx.status = 500;
+                        ctx.body.code = 'INTERNAL_ERROR';
+                        ctx.body.message = 'Internal server error.';
+                    }
                 }
             }
         });
 
         const router = buildRouter.call(this);
-
         app.use(router.routes());
         app.use(router.allowedMethods());
 
         return app.callback();
     }
 
-    async listen({ httpServerOpts = {}, listenArgs = []} = {}) {
+    async listen(...listenArgs) {
         const http = require('http');
         const cb = this.buildRequestListener();
 
-        const httpServer = http.createServer(httpServerOpts, cb);
+        const httpServer = http.createServer(cb);
 
         await new Promise((resolve, reject) =>
                 httpServer.listen(...listenArgs, err => {
@@ -168,13 +230,15 @@ function normalizeOpts(o) {
     return o;
 }
 
-module.exports = async (collection, validate, opts) => {
+module.exports = async (collection, validate, opts = {}) => {
     opts = normalizeOpts(opts);
 
     const [ neededIndexSpecs, unneededIndexNames ] =
             await planIndexes(collection, opts);
 
-    await collection.createIndexes(neededIndexSpecs);
+    if (neededIndexSpecs.length > 0) {
+        await collection.createIndexes(neededIndexSpecs);
+    }
 
     return {
         neededIndexSpecs,
@@ -184,7 +248,7 @@ module.exports = async (collection, validate, opts) => {
 };
 
 function buildRouter() {
-    const router = new Router();
+    const router = new Router({ prefix: this.prefix });
 
     require('./operations/delete-entity')(router, this);
     require('./operations/get-entity')(router, this);
@@ -214,6 +278,27 @@ function buildDesiredIndexSpecs(spec, opts) {
     }
 
     return [desiredIndexes, suggestedIndexNames];
+}
+
+function defaultUnexpectedErrorHandler(e, requestId, req, log) {
+    log(`\n===== Unexpected error in request ${requestId} =====\n`);
+    log('Request:');
+    log('    ' + req.method + ' ' + req.url);
+    log();
+
+    for (const [key, value] of Object.entries(req.headers)) {
+        log('    ' + key + ': ' + value);
+    }
+
+    log();
+    log(e);
+
+    while (e.cause) {
+        log('\nCaused by: ', e.cause);
+        e = e.cause;
+    }
+
+    log();
 }
 
 /**
