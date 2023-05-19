@@ -20,18 +20,18 @@ module.exports = (router, relax) => router.get(`/:${relax.idPlaceholder}`,
     }
 
     if (ctx.request.ifMatch &&
-            !ctx.request.ifMatch.some(strongCompare(document.version_sboe))) {
+            !ctx.request.ifMatch.some(strongCompare(document.version_sbor))) {
         throw errors.preconditionFailed(`If-Match ${ctx.get('If-Match')}`);
     }
 
     if (ctx.request.ifNoneMatch &&
-            ctx.request.ifNoneMatch.some(weakCompare(document.version_sboe))) {
+            ctx.request.ifNoneMatch.some(weakCompare(document.version_sbor))) {
         throw errors.notModified({
-            eTag: document.version_sboe
+            eTag: document.version_sbor
         });
     }
 
-    ctx.set('etag', JSON.stringify(document.version_sboe));
+    ctx.set('etag', JSON.stringify(document.version_sbor));
     ctx.status = 200;
     ctx.body = fromMongoDoc(document, relax.fromDb, ctx.request.query.fields);
 });

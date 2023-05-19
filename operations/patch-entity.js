@@ -1,11 +1,14 @@
 'use strict';
 
 const bodyParser = require('koa-bodyparser');
+const clone = require('clone');
 const errors = require('../errors');
 const jsonPatch = require('fast-json-patch');
 const parseId = require('../utils/parse-id');
+const propagate = require('../utils/propagate');
 const typeIs = require('type-is');
 const util = require('util');
+const validate = require('../utils/validate');
 
 const { doBeforeMutate } = require('../utils/hook-middleware');
 const { fromMongoDoc, toMongoDoc } = require('../utils/mongo-doc-utils');
@@ -27,18 +30,18 @@ module.exports = (router, relax) => router.patch(`/:${relax.idPlaceholder}`,
     try {
         ({ document } = await relax.collection.updateOneRecord(
                 { _id: ctx.state.parsedId },
-                document => {
-                    if ('version_sboe' in document) {
+                async document => {
+                    if ('version_sbor' in document) {
                         if (ctx.request.ifMatch &&
                                 !ctx.request.ifMatch.some(
-                                        strongCompare(document.version_sboe))) {
+                                        strongCompare(document.version_sbor))) {
                             throw errors.preconditionFailed(
                                     `If-Match ${ctx.get('If-Match')}`);
                         }
 
                         if (ctx.request.ifNoneMatch &&
                                 ctx.request.ifNoneMatch.some(
-                                        weakCompare(document.version_sboe))) {
+                                        weakCompare(document.version_sbor))) {
                             throw errors.preconditionFailed(
                                     `If-None-Match ${ctx.get('If-None-Match')}`);
                         }
@@ -49,13 +52,13 @@ module.exports = (router, relax) => router.patch(`/:${relax.idPlaceholder}`,
                     }
 
                     const newDoc = fromMongoDoc(document, relax.fromDb);
+                    const oldDoc = clone(newDoc);
 
                     jsonPatch.applyPatch(newDoc, ctx.request.body);
-                    relax.validate(newDoc, {
-                        ValidationError: errors.ValidationError
-                    });
+                    await validate(ctx, newDoc, oldDoc);
 
-                    return toMongoDoc(newDoc, relax.toDb);
+                    return toMongoDoc(await propagate(ctx, newDoc, oldDoc),
+                            relax.toDb);
                 },
                 {
                     upsert: !ctx.request.ifMatch

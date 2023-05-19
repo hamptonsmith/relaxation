@@ -13,7 +13,7 @@ const Koa = require('koa');
 const lodash = require('lodash');
 const nodeMatchPath = require('node-match-path');
 const objectId = require('bson-objectid');
-const OptEntCollection = require('@shieldsbetter/sb-optimistic-entities')
+const OptEntCollection = require('@shieldsbetter/sb-optimistic-resources')
 const orderingToIndexKeys = require('./utils/ordering-to-index-keys');
 const parseIfMatch = require('@shieldsbetter/parse-if-match');
 const pathToRegexp = require('path-to-regexp');
@@ -36,6 +36,7 @@ class Relaxation {
             orderings: {},
             parseUrlId: (x => x),
             populateBlankResource: (x => x),
+            propagate: (x => x),
             resourceKindName: 'resource',
             prefix: '',
             toDb: (x => x),

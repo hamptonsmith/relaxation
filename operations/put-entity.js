@@ -4,6 +4,8 @@ const bodyParser = require('koa-bodyparser');
 const deepEqual = require('deep-equal');
 const errors = require('../errors');
 const parseId = require('../utils/parse-id');
+const propagate = require('../utils/propagate');
+const validate = require('../utils/validate');
 
 const { doBeforeMutate } = require('../utils/hook-middleware');
 const { fromMongoDoc, toMongoDoc } = require('../utils/mongo-doc-utils');
@@ -22,29 +24,30 @@ module.exports = (router, relax) => router.put(`/:${relax.idPlaceholder}`,
         });
     }
 
-    relax.validate(ctx.request.body, {
-        ValidationError: errors.ValidationError
-    });
-
     const { document } = await relax.collection.updateOneRecord(
             { _id: ctx.state.parsedId },
-            document => {
+            async document => {
                 if (ctx.request.ifMatch &&
                         !ctx.request.ifMatch.some(
-                                strongCompare(document.version_sboe))) {
+                                strongCompare(document.version_sbor))) {
                     throw errors.preconditionFailed(
                             `If-Match ${ctx.get('If-Match')}`);
                 }
 
                 if (ctx.request.ifNoneMatch
-                            && document.version_sboe !== undefined &&
+                            && document.version_sbor !== undefined &&
                         ctx.request.ifNoneMatch.some(
-                                weakCompare(document.version_sboe))) {
+                                weakCompare(document.version_sbor))) {
                     throw errors.preconditionFailed(
                             `If-None-Match ${ctx.get('If-None-Match')}`);
                 }
 
-                return toMongoDoc(ctx.request.body, relax.toDb);
+                const oldDoc = fromMongoDoc(document, relax.fromDb);
+                await validate(ctx, ctx.request.body, oldDoc);
+
+                return toMongoDoc(
+                        await propagate(ctx, ctx.request.body, oldDoc),
+                        relax.toDb);
             },
             { upsert: true });
 

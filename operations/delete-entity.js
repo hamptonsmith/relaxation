@@ -16,14 +16,14 @@ module.exports = (router, relax) => router.delete(`/:${relax.idPlaceholder}`,
             {
                 confirmDelete: (doc) => {
                     if (ctx.request.ifMatch && !ctx.request.ifMatch.some(
-                            strongCompare(doc.version_sboe))) {
+                            strongCompare(doc.version_sbor))) {
                         throw errors.preconditionFailed(
                                 `If-Match ${ctx.get('If-Match')}`);
                     }
 
                     if (ctx.request.ifNoneMatch &&
                             ctx.request.ifNoneMatch.some(
-                                    weakCompare(doc.version_sboe))) {
+                                    weakCompare(doc.version_sbor))) {
                         throw errors.preconditionFailed(
                                 `If-None-Match ${ctx.get('If-None-Match')}`);
                     }

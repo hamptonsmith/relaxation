@@ -8,7 +8,8 @@ environments: {
         peltonDependencies: []
     },
     test: {
-        buildCommand: '''
+        build: '''
+            wait-for-registry
             bash pelton/print-test-image.sh | docker build \
                     -f - \
                     -t $PELTON_DOCKER_REGISTRY/relaxation \
@@ -17,11 +18,11 @@ environments: {
             docker inspect --format='{{index .RepoDigests 0}}' \
                     $PELTON_DOCKER_REGISTRY/relaxation:latest
         ''',
-        printTerminalDependencies: 'cat pelton/test-job.yaml | envsubst',
-        peltonDependencies: [
+        printProjectManifest: 'cat pelton/test-job.yaml | envsubst',
+        dependencies: [
             {
                 printProjectDirectory: '''
-                    echo /$(npm explore @shieldsbetter/sb-optimistic-entities pwd)
+                    echo /$(npm explore @shieldsbetter/sb-optimistic-resources pwd)
                 ''',
                 environment: 'test'
             }

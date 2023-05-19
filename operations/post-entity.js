@@ -2,6 +2,8 @@
 
 const bodyParser = require('koa-bodyparser');
 const errors = require('../errors');
+const propagate = require('../utils/propagate');
+const validate = require('../utils/validate');
 
 const { doBeforeMutate } = require('../utils/hook-middleware');
 const { fromMongoDoc, toMongoDoc } = require('../utils/mongo-doc-utils');
@@ -20,14 +22,13 @@ module.exports = (router, relax) => router.post('/', bodyParser(),
         ctx.request.body.id = id;
     }
 
-    relax.validate(ctx.request.body, {
-        ValidationError: errors.ValidationError
-    });
+    await validate(ctx, ctx.request.body, undefined);
 
     const { document }  = await relax.collection.insertOneRecord(
-            toMongoDoc(ctx.request.body, relax.toDb));
+            toMongoDoc(await propagate(ctx, ctx.request.body, undefined),
+                    relax.toDb));
 
-    ctx.set('ETag', `"${document.version_sboe}"`);
+    ctx.set('ETag', `"${document.version_sbor}"`);
     ctx.status = 200;
     ctx.body = fromMongoDoc(document, relax.fromDb,
             ctx.request.headers['response-fields-mapping']);

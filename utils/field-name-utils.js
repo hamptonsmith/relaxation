@@ -12,9 +12,9 @@ const reverseAliases = Object.fromEntries(
         Object.entries(aliases).map(([k, v]) => [v, k]));
 
 const metafields = {
-    createdAt: 'createdAt_sboe',
-    eTag: 'version_sboe',
-    updatedAt: 'updatedAt_sboe'
+    createdAt: 'createdAt_sbor',
+    eTag: 'version_sbor',
+    updatedAt: 'updatedAt_sbor'
 };
 
 function getByRelaxSpecifier(doc, ent, r) {

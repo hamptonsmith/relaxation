@@ -10,7 +10,7 @@ const lodash = require('lodash');
 //
 // {
 //      _id: ObjectId('abc'),
-//      createdAt_sboe: Date(123),
+//      createdAt_sbor: Date(123),
 //      foo: {
 //          "%5fid": 'foo'
 //      },
@@ -109,7 +109,7 @@ function mongoToRecord(doc, depth = 0) {
                 ])
 
                 // Some things in the mongo doc shouldn't end up in our
-                // relaxation record (namely things ending in _sboe)
+                // relaxation record (namely things ending in _sbor)
                 .filter(([key]) => key !== null));
     }
     else if (doc?.__proto__.constructor.name === 'Array') {
