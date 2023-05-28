@@ -1,6 +1,7 @@
 'use strict';
 
 const bodyParser = require('koa-bodyparser');
+const clone = require('clone');
 const errors = require('../errors');
 const propagate = require('../utils/propagate');
 const validate = require('../utils/validate');
@@ -22,7 +23,10 @@ module.exports = (router, relax) => router.post('/', bodyParser(),
         ctx.request.body.id = id;
     }
 
-    await validate(ctx, ctx.request.body, undefined);
+    let oldValue = { ...(id !== undefined ? { id } : {}) };
+    oldValue = relax.populateMissingResource(oldValue) ?? oldValue;
+
+    await validate(ctx, ctx.request.body, oldValue, { create: true });
 
     const { document }  = await relax.collection.insertOneRecord(
             toMongoDoc(await propagate(ctx, ctx.request.body, undefined),

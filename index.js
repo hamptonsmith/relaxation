@@ -35,7 +35,7 @@ class Relaxation {
             onUnexpectedError: defaultUnexpectedErrorHandler,
             orderings: {},
             parseUrlId: (x => x),
-            populateBlankResource: (x => x),
+            populateMissingResource: (x => x),
             propagate: (x => x),
             resourceKindName: 'resource',
             prefix: '',

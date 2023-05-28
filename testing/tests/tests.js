@@ -35,6 +35,85 @@ test('basic post and get', cleanAxiosErrors(async t => {
     });
 }));
 
+test('post and get with functional populateMissingResource',
+        cleanAxiosErrors(async t => {
+    const r = await testRelax(t, (next, { create, previousValue }) => {
+        t.deepEqual(previousValue, {
+            id: previousValue.id,
+            bazz: 'bazzvalue'
+        });
+
+        t.true(create);
+    }, {
+        constructorOpts: {
+            populateMissingResource: ({ id }) => ({
+                id,
+                bazz: 'bazzvalue'
+            })
+        }
+    });
+
+    const { data: postData, status: postStatus } = await r.post('/', {
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    t.is(postStatus, 200);
+    t.deepEqual(postData, {
+        id: postData.id,
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    const { data: getData, status: getStatus } = await r.get(`/${postData.id}`);
+
+    t.is(getStatus, 200);
+    t.deepEqual(getData, {
+        id: postData.id,
+        foo: 'fooval',
+        bar: 'barval'
+    });
+}));
+
+test('post and get with imperative populateMissingResource',
+        cleanAxiosErrors(async t => {
+    const r = await testRelax(t, (next, { create, previousValue }) => {
+        t.deepEqual(previousValue, {
+            id: previousValue.id,
+            bazz: 'bazzvalue'
+        });
+
+        t.true(create);
+    }, {
+        constructorOpts: {
+            populateMissingResource: r => {
+                r.bazz = 'bazzvalue';
+            }
+        }
+    });
+
+    const { data: postData, status: postStatus } = await r.post('/', {
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    t.is(postStatus, 200);
+    t.deepEqual(postData, {
+        id: postData.id,
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    const { data: getData, status: getStatus } = await r.get(`/${postData.id}`);
+
+    t.is(getStatus, 200);
+    t.deepEqual(getData, {
+        id: postData.id,
+        foo: 'fooval',
+        bar: 'barval'
+    });
+}));
+
 test('get - select top level field - dot syntax', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
@@ -1449,6 +1528,101 @@ test('basic post, patch, and get', cleanAxiosErrors(async t => {
     });
 }));
 
+test('patch and get with functional populateMissingResource',
+        cleanAxiosErrors(async t => {
+    const r = await testRelax(t, (next, { create, previousValue }) => {
+        t.deepEqual(previousValue, {
+            id: previousValue.id,
+            foo: 'fooval',
+            bar: 'barval'
+        });
+
+        t.true(create);
+    }, {
+        constructorOpts: {
+            populateMissingResource: ({ id }) => ({
+                id,
+                foo: 'fooval',
+                bar: 'barval'
+            })
+        }
+    });
+
+    const { data: patchData, status: patchStatus } =
+            await r.patch(`/abc`, [
+                { op: 'replace', path: '/foo', value: { waldo: 'plugh' }},
+                { op: 'remove', path: '/bar' },
+                { op: 'add', path: '/bazz', value: 'bazzval'}
+            ], {
+                headers: {
+                    'Content-Type': 'application/json-patch+json'
+                }
+            });
+
+    t.is(patchStatus, 200);
+    t.deepEqual(patchData, {
+        id: 'abc',
+        foo: { waldo: 'plugh' },
+        bazz: 'bazzval'
+    });
+
+    const { data: getData, status: getStatus } = await r.get(`/abc`);
+
+    t.is(getStatus, 200);
+    t.deepEqual(getData, {
+        id: 'abc',
+        foo: { waldo: 'plugh' },
+        bazz: 'bazzval'
+    });
+}));
+
+test('patch and get with imperative populateMissingResource',
+        cleanAxiosErrors(async t => {
+    const r = await testRelax(t, (next, { create, previousValue }) => {
+        t.deepEqual(previousValue, {
+            id: previousValue.id,
+            foo: 'fooval',
+            bar: 'barval'
+        });
+
+        t.true(create);
+    }, {
+        constructorOpts: {
+            populateMissingResource: r => {
+                r.foo = 'fooval';
+                r.bar = 'barval';
+            }
+        }
+    });
+
+    const { data: patchData, status: patchStatus } =
+            await r.patch(`/abc`, [
+                { op: 'replace', path: '/foo', value: { waldo: 'plugh' }},
+                { op: 'remove', path: '/bar' },
+                { op: 'add', path: '/bazz', value: 'bazzval'}
+            ], {
+                headers: {
+                    'Content-Type': 'application/json-patch+json'
+                }
+            });
+
+    t.is(patchStatus, 200);
+    t.deepEqual(patchData, {
+        id: 'abc',
+        foo: { waldo: 'plugh' },
+        bazz: 'bazzval'
+    });
+
+    const { data: getData, status: getStatus } = await r.get(`/abc`);
+
+    t.is(getStatus, 200);
+    t.deepEqual(getData, {
+        id: 'abc',
+        foo: { waldo: 'plugh' },
+        bazz: 'bazzval'
+    });
+}));
+
 test('patch - if-match 200', cleanAxiosErrors(async t => {
     const r = await testRelax(t, () => {});
 
@@ -1696,6 +1870,91 @@ test('basic put and get', cleanAxiosErrors(async t => {
         constructorOpts: {
             generateId: () => 'abc',
             parseUrlId: x => x,
+            toDb: x => x
+        }
+    });
+
+    const { data: putData, status: putStatus } = await r.put('/abc', {
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    t.is(putStatus, 200);
+    t.deepEqual(putData, {
+        id: 'abc',
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    const { data: getData, status: getStatus } = await r.get('/abc');
+
+    t.is(getStatus, 200);
+    t.deepEqual(getData, {
+        id: 'abc',
+        foo: 'fooval',
+        bar: 'barval'
+    });
+}));
+
+test('put and get with functional populateMissingResource',
+        cleanAxiosErrors(async t => {
+    const r = await testRelax(t, (next, { create, previousValue }) => {
+        t.deepEqual(previousValue, {
+            id: previousValue.id,
+            bazz: 'bazzval'
+        });
+
+        t.true(create);
+    }, {
+        constructorOpts: {
+            generateId: () => 'abc',
+            parseUrlId: x => x,
+            populateMissingResource: ({ id }) => ({
+                id,
+                bazz: 'bazzval'
+            }),
+            toDb: x => x
+        }
+    });
+
+    const { data: putData, status: putStatus } = await r.put('/abc', {
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    t.is(putStatus, 200);
+    t.deepEqual(putData, {
+        id: 'abc',
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    const { data: getData, status: getStatus } = await r.get('/abc');
+
+    t.is(getStatus, 200);
+    t.deepEqual(getData, {
+        id: 'abc',
+        foo: 'fooval',
+        bar: 'barval'
+    });
+}));
+
+test('put and get with imperative populateMissingResource',
+        cleanAxiosErrors(async t => {
+    const r = await testRelax(t, (next, { create, previousValue }) => {
+        t.deepEqual(previousValue, {
+            id: previousValue.id,
+            bazz: 'bazzval'
+        });
+
+        t.true(create);
+    }, {
+        constructorOpts: {
+            generateId: () => 'abc',
+            parseUrlId: x => x,
+            populateMissingResource: r => {
+                r.bazz = 'bazzval';
+            },
             toDb: x => x
         }
     });

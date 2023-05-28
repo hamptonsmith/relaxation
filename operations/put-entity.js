@@ -1,6 +1,7 @@
 'use strict';
 
 const bodyParser = require('koa-bodyparser');
+const clone = require('clone');
 const deepEqual = require('deep-equal');
 const errors = require('../errors');
 const parseId = require('../utils/parse-id');
@@ -27,26 +28,37 @@ module.exports = (router, relax) => router.put(`/:${relax.idPlaceholder}`,
     const { document } = await relax.collection.updateOneRecord(
             { _id: ctx.state.parsedId },
             async document => {
-                if (ctx.request.ifMatch &&
-                        !ctx.request.ifMatch.some(
-                                strongCompare(document.version_sbor))) {
-                    throw errors.preconditionFailed(
-                            `If-Match ${ctx.get('If-Match')}`);
+                let oldValue;
+                if ('version_sbor' in document) {
+                    if (ctx.request.ifMatch &&
+                            !ctx.request.ifMatch.some(
+                                    strongCompare(document.version_sbor))) {
+                        throw errors.preconditionFailed(
+                                `If-Match ${ctx.get('If-Match')}`);
+                    }
+
+                    if (ctx.request.ifNoneMatch
+                                && document.version_sbor !== undefined &&
+                            ctx.request.ifNoneMatch.some(
+                                    weakCompare(document.version_sbor))) {
+                        throw errors.preconditionFailed(
+                                `If-None-Match ${ctx.get('If-None-Match')}`);
+                    }
+
+                    oldValue = clone(fromMongoDoc(document, relax.fromDb));
+                }
+                else {
+                    oldValue = { id: document._id };
+                    oldValue = relax.populateMissingResource(oldValue)
+                            ?? oldValue;
                 }
 
-                if (ctx.request.ifNoneMatch
-                            && document.version_sbor !== undefined &&
-                        ctx.request.ifNoneMatch.some(
-                                weakCompare(document.version_sbor))) {
-                    throw errors.preconditionFailed(
-                            `If-None-Match ${ctx.get('If-None-Match')}`);
-                }
-
-                const oldDoc = fromMongoDoc(document, relax.fromDb);
-                await validate(ctx, ctx.request.body, oldDoc);
+                await validate(ctx, ctx.request.body, oldValue, {
+                    create: !document.version_sbor
+                });
 
                 return toMongoDoc(
-                        await propagate(ctx, ctx.request.body, oldDoc),
+                        await propagate(ctx, ctx.request.body, oldValue),
                         relax.toDb);
             },
             { upsert: true });

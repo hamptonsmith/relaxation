@@ -31,6 +31,7 @@ module.exports = (router, relax) => router.patch(`/:${relax.idPlaceholder}`,
         ({ document } = await relax.collection.updateOneRecord(
                 { _id: ctx.state.parsedId },
                 async document => {
+                    let oldValue;
                     if ('version_sbor' in document) {
                         if (ctx.request.ifMatch &&
                                 !ctx.request.ifMatch.some(
@@ -45,19 +46,23 @@ module.exports = (router, relax) => router.patch(`/:${relax.idPlaceholder}`,
                             throw errors.preconditionFailed(
                                     `If-None-Match ${ctx.get('If-None-Match')}`);
                         }
+
+                        oldValue = clone(fromMongoDoc(document, relax.fromDb));
                     }
                     else {
-                        document = relax.populateBlankResource(document)
-                                ?? document;
+                        oldValue = { id: document._id };
+                        oldValue = relax.populateMissingResource(oldValue)
+                                ?? oldValue;
                     }
 
                     const newDoc = fromMongoDoc(document, relax.fromDb);
-                    const oldDoc = clone(newDoc);
 
                     jsonPatch.applyPatch(newDoc, ctx.request.body);
-                    await validate(ctx, newDoc, oldDoc);
+                    await validate(ctx, newDoc, oldValue, {
+                        create: !document.version_sbor
+                    });
 
-                    return toMongoDoc(await propagate(ctx, newDoc, oldDoc),
+                    return toMongoDoc(await propagate(ctx, newDoc, oldValue),
                             relax.toDb);
                 },
                 {
