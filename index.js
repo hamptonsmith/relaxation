@@ -28,6 +28,7 @@ class Relaxation {
     constructor(collection, validate, opts) {
         Object.assign(this, {
             beforeMutate: (() => {}),
+            beforeRequest: (() => {}),
             fromDb: (x => x),
             generateId: (() => idEncoder.encode(crypto.randomBytes(16))),
             log: console.log.bind(console),
@@ -36,6 +37,7 @@ class Relaxation {
             orderings: {},
             parseUrlId: (x => x),
             populateMissingResource: (x => x),
+            preservedKeys: (() => []),
             propagate: (x => x),
             resourceKindName: 'resource',
             prefix: '',
@@ -43,6 +45,11 @@ class Relaxation {
 
             ...opts
         });
+
+        if (Array.isArray(this.preservedKeys)) {
+            const oldPreservedKeys = this.preservedKeys;
+            this.preservedKeys = (() => oldPreservedKeys);
+        }
 
         this.collection =
                 new OptEntCollection(collection, { nower: this.nower });
@@ -84,6 +91,7 @@ class Relaxation {
 
             ctx.request.id = idEncoder.encode(crypto.randomBytes(8));
             ctx.state.relax = this;
+            ctx.state.relaxState = {};
 
             try {
                 await next();

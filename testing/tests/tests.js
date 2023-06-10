@@ -75,6 +75,145 @@ test('post and get with functional populateMissingResource',
     });
 }));
 
+test('post and get with populateMissingResource and preservedKeys array',
+        cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            populateMissingResource: ({ id }) => ({
+                id,
+                foo: 'fooval',
+                bar: 'barval'
+            }),
+            preservedKeys: ['/foo']
+        }
+    });
+
+    const { data: postData, status: postStatus } = await r.post('/', {
+        bazz: 'bazzval'
+    });
+
+    t.is(postStatus, 200);
+    t.deepEqual(postData, {
+        id: postData.id,
+        foo: 'fooval',
+        bazz: 'bazzval'
+    });
+
+    const { data: getData, status: getStatus } = await r.get(`/${postData.id}`);
+
+    t.is(getStatus, 200);
+    t.deepEqual(getData, {
+        id: postData.id,
+        foo: 'fooval',
+        bazz: 'bazzval'
+    });
+}));
+
+test('post and get with populateMissingResource and preservedKeys function',
+        cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            populateMissingResource: ({ id }) => ({
+                id,
+                foo: 'fooval',
+                bar: {
+                    plugh: 'waldo'
+                }
+            }),
+            preservedKeys: (keys, newValue) => {
+                t.deepEqual(
+                        new Set(keys),
+                        new Set(['/id', '/foo', '/bar/plugh']));
+
+                t.deepEqual(newValue, {
+                    id: newValue.id,
+                    bazz: 'bazzval'
+                });
+
+                return ['/foo'];
+            }
+        }
+    });
+
+    const { data: postData, status: postStatus } = await r.post('/', {
+        bazz: 'bazzval'
+    });
+
+    t.is(postStatus, 200);
+    t.deepEqual(postData, {
+        id: postData.id,
+        foo: 'fooval',
+        bazz: 'bazzval'
+    });
+
+    const { data: getData, status: getStatus } = await r.get(`/${postData.id}`);
+
+    t.is(getStatus, 200);
+    t.deepEqual(getData, {
+        id: postData.id,
+        foo: 'fooval',
+        bazz: 'bazzval'
+    });
+}));
+
+test('put missing and get with populateMissingResource and preservedKeys',
+        cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            populateMissingResource: ({ id }) => ({
+                id,
+                foo: 'fooval',
+                bar: 'barval'
+            }),
+            preservedKeys: ['/foo']
+        }
+    });
+
+    const { data: putData, status: putStatus } = await r.put('/abc', {
+        bazz: 'bazzval'
+    });
+
+    t.is(putStatus, 200);
+    t.deepEqual(putData, {
+        id: 'abc',
+        foo: 'fooval',
+        bazz: 'bazzval'
+    });
+
+    const { data: getData, status: getStatus } = await r.get(`/abc`);
+
+    t.is(getStatus, 200);
+    t.deepEqual(getData, {
+        id: 'abc',
+        foo: 'fooval',
+        bazz: 'bazzval'
+    });
+}));
+
+test('put existing and get with preservedKeys', cleanAxiosErrors(async t => {
+    const r = await testRelax(t, () => {}, {
+        constructorOpts: {
+            preservedKeys: ['/foo']
+        }
+    });
+
+    await r.put('/abc', {
+        foo: 'fooval',
+        bar: 'barval'
+    });
+
+    const { data: putData, status: putStatus } = await r.put('/abc', {
+        bazz: 'bazzval'
+    });
+
+    t.is(putStatus, 200);
+    t.deepEqual(putData, {
+        id: 'abc',
+        foo: 'fooval',
+        bazz: 'bazzval'
+    });
+}));
+
 test('post and get with imperative populateMissingResource',
         cleanAxiosErrors(async t => {
     const r = await testRelax(t, (next, { create, previousValue }) => {

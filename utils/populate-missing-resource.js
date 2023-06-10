@@ -2,13 +2,12 @@
 
 const errors = require('../errors');
 
-module.exports = async (ctx, newValue, previousValue) => {
-	return await ctx.state.relax.propagate(newValue, {
+module.exports = async (ctx, record) => {
+	return await ctx.state.relax.populateMissingResource(record, {
 		AuthorizationError: errors.AuthorizationError,
 		AuthenticationError: errors.AuthenticationError,
-		previousValue,
 		request: ctx.req,
 		state: ctx.state.relaxState,
 		ValidationError: errors.ValidationError
-	}) ?? newValue;
+	}) ?? record;
 };

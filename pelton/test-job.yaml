@@ -3,6 +3,7 @@ kind: Job
 metadata:
   name: run-tests-job-${PELTON_RUN}
 spec:
+  backoffLimit: 0
   ttlSecondsAfterFinished: 3600
   template:
     metadata:
@@ -13,4 +14,3 @@ spec:
       containers:
       - name: run-tests-ctnr-${PELTON_RUN}
         image: ${PELTON_BUILD_RESULT}
-        args: $PELTON_EXTRA_ARGS

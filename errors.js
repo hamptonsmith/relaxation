@@ -35,6 +35,7 @@ class RelaxationClientError extends Error {
 module.exports = {
     AuthenticationError: class extends RelaxationClientError {
         constructor(...args) {
+            // Remember... 401 Unauthorized means unauthenticated. :(
             super('Unauthorized', ...args);
         }
 
@@ -43,6 +44,7 @@ module.exports = {
         }
 
         get code() {
+            // Remember... 401 Unauthorized means unauthenticated. :(
             return 'UNAUTHORIZED';
         }
     },

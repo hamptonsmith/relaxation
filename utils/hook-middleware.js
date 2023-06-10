@@ -9,6 +9,26 @@ module.exports = {
 				{
 					AuthorizationError: errors.AuthorizationError,
 					AuthenticationError: errors.AuthenticationError,
+					state: ctx.state.relaxState,
+					ValidationError: errors.ValidationError
+				});
+
+		await next();
+	},
+	doBeforeRequest: async (ctx, next) => {
+		await ctx.state.relax.beforeRequest({
+					host: ctx.request.host,
+					method: ctx.request.method,
+					port: ctx.request.port,
+					path: ctx.request.path,
+					protocol: ctx.request.protocol,
+					query: ctx.request.query
+				},
+				ctx.req,
+				{
+					AuthorizationError: errors.AuthorizationError,
+					AuthenticationError: errors.AuthenticationError,
+					state: ctx.state.relaxState,
 					ValidationError: errors.ValidationError
 				});
 

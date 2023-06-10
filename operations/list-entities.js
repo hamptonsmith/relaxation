@@ -5,7 +5,6 @@ const bs58 = require('bs58');
 const errors = require('../errors');
 const fieldNames = require('../utils/field-name-utils');
 const isMongoObjectId = require('../utils/is-mongo-object-id');
-const jsonPointer = require('json-pointer');
 const LinkHeader = require('http-link-header');
 const lodash = require('lodash');
 const ObjectId = require('bson-objectid');
@@ -13,6 +12,7 @@ const orderingToIndexKeys = require('../utils/ordering-to-index-keys');
 const util = require('util');
 const validator = require('validator');
 
+const { doBeforeRequest } = require('../utils/hook-middleware');
 const { fromMongoDoc } = require('../utils/mongo-doc-utils');
 const { strongCompare, weakCompare } =
         require('../utils/etag-comparison-utils');
@@ -29,7 +29,8 @@ const filterOps = {
 };
 const orderDirections = { '1': '$gt', '-1': '$lt' };
 
-module.exports = (router, relax) => router.get('/', async (ctx, next) => {
+module.exports = (router, relax) => router.get('/',
+        doBeforeRequest, async (ctx, next) => {
     const requestedOrder = ctx.request.query.order || 'created';
     const referenceOrder = requestedOrder.endsWith('-reverse')
             ? requestedOrder.substring(

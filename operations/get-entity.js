@@ -4,12 +4,13 @@ const errors = require('../errors');
 const parseId = require('../utils/parse-id');
 const util = require('util');
 
+const { doBeforeRequest } = require('../utils/hook-middleware');
 const { fromMongoDoc } = require('../utils/mongo-doc-utils');
 const { strongCompare, weakCompare } =
         require('../utils/etag-comparison-utils');
 
 module.exports = (router, relax) => router.get(`/:${relax.idPlaceholder}`,
-        parseId, async (ctx, next) => {
+        doBeforeRequest, parseId, async (ctx, next) => {
 
     const document =
             await relax.collection.findOne({ _id: ctx.state.parsedId });

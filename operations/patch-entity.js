@@ -5,18 +5,20 @@ const clone = require('clone');
 const errors = require('../errors');
 const jsonPatch = require('fast-json-patch');
 const parseId = require('../utils/parse-id');
+const populateMissingResource = require('../utils/populate-missing-resource');
 const propagate = require('../utils/propagate');
 const typeIs = require('type-is');
 const util = require('util');
 const validate = require('../utils/validate');
 
-const { doBeforeMutate } = require('../utils/hook-middleware');
+const { doBeforeMutate, doBeforeRequest } = require('../utils/hook-middleware');
 const { fromMongoDoc, toMongoDoc } = require('../utils/mongo-doc-utils');
 const { strongCompare, weakCompare } =
         require('../utils/etag-comparison-utils');
 
 module.exports = (router, relax) => router.patch(`/:${relax.idPlaceholder}`,
-            parseId, doBeforeMutate, bodyParser(), async (ctx, next) => {
+            doBeforeRequest, parseId, doBeforeMutate, bodyParser(),
+            async (ctx, next) => {
 
     const inferredBodyType = inferBodyType(ctx);
 
@@ -51,8 +53,7 @@ module.exports = (router, relax) => router.patch(`/:${relax.idPlaceholder}`,
                     }
                     else {
                         oldValue = { id: document._id };
-                        oldValue = relax.populateMissingResource(oldValue)
-                                ?? oldValue;
+                        oldValue = await populateMissingResource(ctx, oldValue);
                     }
 
                     const newDoc = fromMongoDoc(document, relax.fromDb);

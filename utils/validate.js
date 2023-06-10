@@ -8,6 +8,7 @@ module.exports = async (ctx, newValue, previousValue, extras) => {
 		AuthenticationError: errors.AuthenticationError,
 		previousValue,
 		request: ctx.req,
+		state: ctx.state.relaxState,
 		ValidationError: errors.ValidationError,
 
 		...extras

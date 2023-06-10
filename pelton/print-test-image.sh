@@ -12,7 +12,11 @@ for image in $(echo "$SUPPORTED_MONGO_VERSIONS" | tr ',' ' '); do
         export RUN_TESTS="$RUN_TESTS;"
     fi
 
-    export RUN_TESTS="$RUN_TESTS env MONGO_CONNECT_STRING=$MONGO_CONNECT_STRING npx ava"
+    EXTRA_ARGS=$(echo "$PELTON_EXTRA_ARGS" | jq '.[]' | tr '\n' ' ' | sed 's|"|\\"|g')
+
+    export RUN_TESTS="$RUN_TESTS env MONGO_CONNECT_STRING=$MONGO_CONNECT_STRING npx ava $EXTRA_ARGS"
 done
+
+export RUN_TESTS="set -x; $RUN_TESTS"
 
 cat test-runner.Dockerfile | envsubst

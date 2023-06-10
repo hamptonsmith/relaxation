@@ -5,16 +5,19 @@ const clone = require('clone');
 const deepEqual = require('deep-equal');
 const errors = require('../errors');
 const parseId = require('../utils/parse-id');
+const populateMissingResource = require('../utils/populate-missing-resource');
 const propagate = require('../utils/propagate');
+const replaceResource = require('../utils/replace-resource');
 const validate = require('../utils/validate');
 
-const { doBeforeMutate } = require('../utils/hook-middleware');
+const { doBeforeMutate, doBeforeRequest } = require('../utils/hook-middleware');
 const { fromMongoDoc, toMongoDoc } = require('../utils/mongo-doc-utils');
 const { strongCompare, weakCompare } =
         require('../utils/etag-comparison-utils');
 
 module.exports = (router, relax) => router.put(`/:${relax.idPlaceholder}`,
-        parseId, doBeforeMutate, bodyParser(), async (ctx, next) => {
+        doBeforeRequest, parseId, doBeforeMutate, bodyParser(),
+        async (ctx, next) => {
 
     if ('id' in ctx.request.body
             && !deepEqual(ctx.request.body.id, ctx.state.parsedId)) {
@@ -49,17 +52,18 @@ module.exports = (router, relax) => router.put(`/:${relax.idPlaceholder}`,
                 }
                 else {
                     oldValue = { id: document._id };
-                    oldValue = relax.populateMissingResource(oldValue)
-                            ?? oldValue;
+                    oldValue = await populateMissingResource(ctx, oldValue);
                 }
 
-                await validate(ctx, ctx.request.body, oldValue, {
+                const newValue =
+                        await replaceResource(ctx, ctx.request.body, oldValue);
+
+                await validate(ctx, newValue, oldValue, {
                     create: !document.version_sbor
                 });
 
                 return toMongoDoc(
-                        await propagate(ctx, ctx.request.body, oldValue),
-                        relax.toDb);
+                        await propagate(ctx, newValue, oldValue), relax.toDb);
             },
             { upsert: true });
 
