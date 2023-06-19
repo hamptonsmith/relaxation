@@ -3,6 +3,7 @@
 const errors = require('../errors');
 const parseId = require('../utils/parse-id');
 const util = require('util');
+const view = require('../utils/view');
 
 const { doBeforeRequest } = require('../utils/hook-middleware');
 const { fromMongoDoc } = require('../utils/mongo-doc-utils');
@@ -34,5 +35,6 @@ module.exports = (router, relax) => router.get(`/:${relax.idPlaceholder}`,
 
     ctx.set('etag', JSON.stringify(document.version_sbor));
     ctx.status = 200;
-    ctx.body = fromMongoDoc(document, relax.fromDb, ctx.request.query.fields);
+    ctx.body = await fromMongoDoc(
+            document, relax.fromDb, view(ctx), ctx.request.query.fields);
 });

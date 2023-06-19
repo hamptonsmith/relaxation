@@ -11,7 +11,12 @@ async function sleep(ms = 2000) {
 }
 
 test('basic post and get', cleanAxiosErrors(async t => {
-    const r = await testRelax(t, () => {});
+    const r = await testRelax(t, (d, { delta }) => {
+        t.deepEqual(delta, {
+            foo: 'fooval',
+            bar: 'barval'
+        })
+    });
 
     const { data: postData, status: postStatus } = await r.post('/', {
         foo: 'fooval',
@@ -37,7 +42,13 @@ test('basic post and get', cleanAxiosErrors(async t => {
 
 test('post and get with functional populateMissingResource',
         cleanAxiosErrors(async t => {
-    const r = await testRelax(t, (next, { create, previousValue }) => {
+    const r = await testRelax(t, (next, { create, delta, previousValue }) => {
+        t.deepEqual(delta, {
+            bazz: undefined,
+            foo: 'fooval',
+            bar: 'barval'
+        });
+
         t.deepEqual(previousValue, {
             id: previousValue.id,
             bazz: 'bazzvalue'
@@ -77,7 +88,12 @@ test('post and get with functional populateMissingResource',
 
 test('post and get with populateMissingResource and preservedKeys array',
         cleanAxiosErrors(async t => {
-    const r = await testRelax(t, () => {}, {
+    const r = await testRelax(t, (d, { delta }) => {
+        t.deepEqual(delta, {
+            bar: undefined,
+            bazz: 'bazzval'
+        });
+    }, {
         constructorOpts: {
             populateMissingResource: ({ id }) => ({
                 id,
@@ -111,7 +127,12 @@ test('post and get with populateMissingResource and preservedKeys array',
 
 test('post and get with populateMissingResource and preservedKeys function',
         cleanAxiosErrors(async t => {
-    const r = await testRelax(t, () => {}, {
+    const r = await testRelax(t, (d, { delta }) => {
+        t.deepEqual(delta, {
+            bar: undefined,
+            bazz: 'bazzval'
+        });
+    }, {
         constructorOpts: {
             populateMissingResource: ({ id }) => ({
                 id,
@@ -126,7 +147,6 @@ test('post and get with populateMissingResource and preservedKeys function',
                         new Set(['/id', '/foo', '/bar/plugh']));
 
                 t.deepEqual(newValue, {
-                    id: newValue.id,
                     bazz: 'bazzval'
                 });
 
@@ -158,7 +178,12 @@ test('post and get with populateMissingResource and preservedKeys function',
 
 test('put missing and get with populateMissingResource and preservedKeys',
         cleanAxiosErrors(async t => {
-    const r = await testRelax(t, () => {}, {
+    const r = await testRelax(t, (d, { delta }) => {
+        t.deepEqual(delta, {
+            bazz: 'bazzval',
+            bar: undefined
+        });
+    }, {
         constructorOpts: {
             populateMissingResource: ({ id }) => ({
                 id,
@@ -191,7 +216,15 @@ test('put missing and get with populateMissingResource and preservedKeys',
 }));
 
 test('put existing and get with preservedKeys', cleanAxiosErrors(async t => {
-    const r = await testRelax(t, () => {}, {
+    const expectedDelta = [
+        { foo: 'fooval', bar: 'barval' },
+        { bazz: 'bazzval', bar: undefined }
+    ];
+
+    const r = await testRelax(t, (d, { delta }) => {
+        t.deepEqual(delta, expectedDelta.shift(),
+                `call ${2 - expectedDelta.length}`);
+    }, {
         constructorOpts: {
             preservedKeys: ['/foo']
         }
@@ -212,11 +245,19 @@ test('put existing and get with preservedKeys', cleanAxiosErrors(async t => {
         foo: 'fooval',
         bazz: 'bazzval'
     });
+
+    t.is(expectedDelta.length, 0);
 }));
 
 test('post and get with imperative populateMissingResource',
         cleanAxiosErrors(async t => {
-    const r = await testRelax(t, (next, { create, previousValue }) => {
+    const r = await testRelax(t, (next, { create, delta, previousValue }) => {
+        t.deepEqual(delta, {
+            foo: 'fooval',
+            bar: 'barval',
+            bazz: undefined
+        });
+
         t.deepEqual(previousValue, {
             id: previousValue.id,
             bazz: 'bazzvalue'
@@ -1632,7 +1673,18 @@ test('get - if-none-match star 304', cleanAxiosErrors(async t => {
 }));
 
 test('basic post, patch, and get', cleanAxiosErrors(async t => {
-    const r = await testRelax(t, () => {});
+    const deltaAsExpected = seqAssert(t, [
+        (msg, val) => t.deepEqual(val, { foo: 'fooval', bar: 'barval' }, msg),
+        (msg, val) => t.deepEqual(val, {
+            foo: { waldo: 'plugh' },
+            bar: undefined,
+            bazz: 'bazzval'
+        }, msg)
+    ]);
+
+    const r = await testRelax(t, (d, { delta }) => {
+        deltaAsExpected(delta);
+    });
 
     const { data: postData } = await r.post('/', {
         foo: 'fooval',
@@ -1665,11 +1717,19 @@ test('basic post, patch, and get', cleanAxiosErrors(async t => {
         foo: { waldo: 'plugh' },
         bazz: 'bazzval'
     });
+
+    deltaAsExpected.allCalled();
 }));
 
 test('patch and get with functional populateMissingResource',
         cleanAxiosErrors(async t => {
-    const r = await testRelax(t, (next, { create, previousValue }) => {
+    const r = await testRelax(t, (next, { create, delta, previousValue }) => {
+        t.deepEqual(delta, {
+            foo: { waldo: 'plugh' },
+            bar: undefined,
+            bazz: 'bazzval'
+        });
+
         t.deepEqual(previousValue, {
             id: previousValue.id,
             foo: 'fooval',
@@ -1717,7 +1777,13 @@ test('patch and get with functional populateMissingResource',
 
 test('patch and get with imperative populateMissingResource',
         cleanAxiosErrors(async t => {
-    const r = await testRelax(t, (next, { create, previousValue }) => {
+    const r = await testRelax(t, (next, { create, delta, previousValue }) => {
+        t.deepEqual(delta, {
+            foo: { waldo: 'plugh' },
+            bar: undefined,
+            bazz: 'bazzval'
+        });
+
         t.deepEqual(previousValue, {
             id: previousValue.id,
             foo: 'fooval',
@@ -2005,7 +2071,12 @@ test('patch - if-none-match star 412', cleanAxiosErrors(async t => {
 }));
 
 test('basic put and get', cleanAxiosErrors(async t => {
-    const r = await testRelax(t, () => {}, {
+    const r = await testRelax(t, (d, { delta }) => {
+        t.deepEqual(delta, {
+            foo: 'fooval',
+            bar: 'barval'
+        });
+    }, {
         constructorOpts: {
             generateId: () => 'abc',
             parseUrlId: x => x,
@@ -2037,7 +2108,13 @@ test('basic put and get', cleanAxiosErrors(async t => {
 
 test('put and get with functional populateMissingResource',
         cleanAxiosErrors(async t => {
-    const r = await testRelax(t, (next, { create, previousValue }) => {
+    const r = await testRelax(t, (next, { create, delta, previousValue }) => {
+        t.deepEqual(delta, {
+            foo: 'fooval',
+            bar: 'barval',
+            bazz: undefined
+        });
+
         t.deepEqual(previousValue, {
             id: previousValue.id,
             bazz: 'bazzval'
@@ -2080,7 +2157,13 @@ test('put and get with functional populateMissingResource',
 
 test('put and get with imperative populateMissingResource',
         cleanAxiosErrors(async t => {
-    const r = await testRelax(t, (next, { create, previousValue }) => {
+    const r = await testRelax(t, (next, { create, delta, previousValue }) => {
+        t.deepEqual(delta, {
+            foo: 'fooval',
+            bar: 'barval',
+            bazz: undefined
+        });
+
         t.deepEqual(previousValue, {
             id: previousValue.id,
             bazz: 'bazzval'
@@ -2846,6 +2929,21 @@ async function postMany(relax, count, template, op) {
     }
 
     await Promise.all(promises);
+}
+
+function seqAssert(t, seq) {
+    let index = 0;
+
+    const result = (...args) => {
+        seq[index](`index ${index}`, ...args);
+        index++;
+    };
+
+    result.allCalled = () => {
+        t.is(index, seq.length);
+    };
+
+    return result;
 }
 
 function templateObj(o, data) {

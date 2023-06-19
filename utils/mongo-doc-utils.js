@@ -199,7 +199,10 @@ function isMongoy(v) {
 }
 
 module.exports = {
-    fromMongoDoc: (doc, fromDb, fieldSpecifiers) =>
-            project(doc, jsonify(fromDb(mongoToRecord(doc))), fieldSpecifiers),
+    fromMongoDoc: async (doc, fromDb, view = (x => x), fieldSpecifiers) =>
+            project(
+                    doc,
+                    await view(jsonify(fromDb(mongoToRecord(doc)))),
+                    fieldSpecifiers),
     toMongoDoc : (ent, toDb) => recordToMongo(toDb(ent))
 };

@@ -5,11 +5,12 @@ const clone = require('clone');
 const errors = require('../errors');
 const jsonPatch = require('fast-json-patch');
 const parseId = require('../utils/parse-id');
+const patchToDelta = require('../utils/patch-to-delta');
 const populateMissingResource = require('../utils/populate-missing-resource');
-const propagate = require('../utils/propagate');
 const typeIs = require('type-is');
 const util = require('util');
 const validate = require('../utils/validate');
+const view = require('../utils/view');
 
 const { doBeforeMutate, doBeforeRequest } = require('../utils/hook-middleware');
 const { fromMongoDoc, toMongoDoc } = require('../utils/mongo-doc-utils');
@@ -33,7 +34,7 @@ module.exports = (router, relax) => router.patch(`/:${relax.idPlaceholder}`,
         ({ document } = await relax.collection.updateOneRecord(
                 { _id: ctx.state.parsedId },
                 async document => {
-                    let oldValue;
+                    let unredactedOldValue;
                     if ('version_sbor' in document) {
                         if (ctx.request.ifMatch &&
                                 !ctx.request.ifMatch.some(
@@ -49,22 +50,43 @@ module.exports = (router, relax) => router.patch(`/:${relax.idPlaceholder}`,
                                     `If-None-Match ${ctx.get('If-None-Match')}`);
                         }
 
-                        oldValue = clone(fromMongoDoc(document, relax.fromDb));
+                        unredactedOldValue =
+                                await fromMongoDoc(document, relax.fromDb);
                     }
                     else {
-                        oldValue = { id: document._id };
-                        oldValue = await populateMissingResource(ctx, oldValue);
+                        if (!relax.allowPatchCreate) {
+                            throw new errors.noSuchResource(
+                                    `${relax.prefix}/${ctx.state.parseId}`);
+                        }
+
+                        unredactedOldValue = { id: document._id };
+                        unredactedOldValue = await populateMissingResource(
+                                ctx, unredactedOldValue)
+                                .then(r => relax.view(r));
                     }
 
-                    const newDoc = fromMongoDoc(document, relax.fromDb);
+                    const viewedOldValue =
+                            relax.view(clone(unredactedOldValue));
 
-                    jsonPatch.applyPatch(newDoc, ctx.request.body);
-                    await validate(ctx, newDoc, oldValue, {
-                        create: !document.version_sbor
+                    const modifiedView = clone(viewedOldValue);
+                    jsonPatch.applyPatch(modifiedView, ctx.request.body);
+
+                    const delta =
+                            patchToDelta(viewedOldValue, ctx.request.body);
+
+                    const changes =
+                            jsonPatch.compare(viewedOldValue, modifiedView);
+
+                    const newValue = clone(unredactedOldValue);
+                    jsonPatch.applyPatch(newValue, changes);
+
+                    await validate(ctx, newValue, unredactedOldValue, {
+                        create: !document.version_sbor,
+                        delta,
+                        patch: ctx.request.body
                     });
 
-                    return toMongoDoc(await propagate(ctx, newDoc, oldValue),
-                            relax.toDb);
+                    return toMongoDoc(newValue, relax.toDb);
                 },
                 {
                     upsert: !ctx.request.ifMatch
@@ -84,7 +106,7 @@ module.exports = (router, relax) => router.patch(`/:${relax.idPlaceholder}`,
     }
     else {
         ctx.status = 200;
-        ctx.body = fromMongoDoc(document, relax.fromDb,
+        ctx.body = await fromMongoDoc(document, relax.fromDb, view(ctx),
                 ctx.request.headers['response-fields-mapping']);
     }
 });

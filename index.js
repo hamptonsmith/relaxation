@@ -23,14 +23,17 @@ const typeIs = require('type-is');
 
 const idAlphabet = 'abcdefghjkmnpqrstuvwxyz23456789';
 const idEncoder = baseX(idAlphabet);
+const defaultGenerateId = (() => idEncoder.encode(crypto.randomBytes(16)));
 
 class Relaxation {
     constructor(collection, validate, opts) {
         Object.assign(this, {
+            allowPatchCreate: true,
+            allowPutCreate: true,
             beforeMutate: (() => {}),
             beforeRequest: (() => {}),
             fromDb: (x => x),
-            generateId: (() => idEncoder.encode(crypto.randomBytes(16))),
+            generateId: defaultGenerateId,
             log: console.log.bind(console),
             nower: Date.now,
             onUnexpectedError: defaultUnexpectedErrorHandler,
@@ -38,10 +41,10 @@ class Relaxation {
             parseUrlId: (x => x),
             populateMissingResource: (x => x),
             preservedKeys: (() => []),
-            propagate: (x => x),
             resourceKindName: 'resource',
             prefix: '',
             toDb: (x => x),
+            view: (x => x),
 
             ...opts
         });
@@ -255,6 +258,8 @@ module.exports = async (collection, validate, opts = {}) => {
         unneededIndexNames
     };
 };
+
+module.exports.defaultGenerateId = defaultGenerateId;
 
 function buildRouter() {
     const router = new Router({ prefix: this.prefix });

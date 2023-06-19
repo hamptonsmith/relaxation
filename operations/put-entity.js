@@ -6,9 +6,9 @@ const deepEqual = require('deep-equal');
 const errors = require('../errors');
 const parseId = require('../utils/parse-id');
 const populateMissingResource = require('../utils/populate-missing-resource');
-const propagate = require('../utils/propagate');
 const replaceResource = require('../utils/replace-resource');
 const validate = require('../utils/validate');
+const view = require('../utils/view');
 
 const { doBeforeMutate, doBeforeRequest } = require('../utils/hook-middleware');
 const { fromMongoDoc, toMongoDoc } = require('../utils/mongo-doc-utils');
@@ -48,26 +48,32 @@ module.exports = (router, relax) => router.put(`/:${relax.idPlaceholder}`,
                                 `If-None-Match ${ctx.get('If-None-Match')}`);
                     }
 
-                    oldValue = clone(fromMongoDoc(document, relax.fromDb));
+                    oldValue = clone(
+                            await fromMongoDoc(document, relax.fromDb));
                 }
                 else {
+                    if (!relax.allowPutCreate) {
+                        throw new errors.noSuchResource(
+                                `${relax.prefix}/${ctx.state.parseId}`);
+                    }
+
                     oldValue = { id: document._id };
                     oldValue = await populateMissingResource(ctx, oldValue);
                 }
 
-                const newValue =
+                const [ newValue, delta ] =
                         await replaceResource(ctx, ctx.request.body, oldValue);
 
                 await validate(ctx, newValue, oldValue, {
-                    create: !document.version_sbor
+                    create: !document.version_sbor,
+                    delta
                 });
 
-                return toMongoDoc(
-                        await propagate(ctx, newValue, oldValue), relax.toDb);
+                return toMongoDoc(newValue, relax.toDb);
             },
             { upsert: true });
 
     ctx.status = 200;
-    ctx.body = fromMongoDoc(document, relax.fromDb,
+    ctx.body = await fromMongoDoc(document, relax.fromDb, view(ctx),
             ctx.request.headers['response-fields-mapping']);
 });

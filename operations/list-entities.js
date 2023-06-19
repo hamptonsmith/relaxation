@@ -11,6 +11,7 @@ const ObjectId = require('bson-objectid');
 const orderingToIndexKeys = require('../utils/ordering-to-index-keys');
 const util = require('util');
 const validator = require('validator');
+const view = require('../utils/view');
 
 const { doBeforeRequest } = require('../utils/hook-middleware');
 const { fromMongoDoc } = require('../utils/mongo-doc-utils');
@@ -79,8 +80,9 @@ module.exports = (router, relax) => router.get('/',
     }
 
     ctx.status = 200;
-    ctx.body = pagePlusOne.slice(0, first)
-            .map(d => fromMongoDoc(d, relax.fromDb, ctx.request.query.fields));
+    ctx.body = await Promise.all(pagePlusOne.slice(0, first)
+            .map(d => fromMongoDoc(
+                    d, relax.fromDb, view(ctx), ctx.request.query.fields)));
 });
 
 function valueToCursorElement(v) {
